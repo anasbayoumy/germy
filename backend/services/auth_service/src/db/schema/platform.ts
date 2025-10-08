@@ -69,12 +69,16 @@ export const companySubscriptions = pgTable('company_subscriptions', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Relations
+// Relations - COMBINED VERSION
 export const companiesRelations = relations(companies, ({ one, many }) => ({
   subscription: one(companySubscriptions, {
     fields: [companies.id],
     references: [companySubscriptions.companyId],
   }),
+  // These will be imported from auth.ts when needed
+  // users: many(users),
+  // auditLogs: many(auditLogs),
+  // notifications: many(notifications),
 }));
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({

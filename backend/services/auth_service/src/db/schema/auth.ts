@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, inet } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, inet, jsonb, unique } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { companies } from './platform';
 
@@ -29,7 +29,7 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
-  // Composite unique constraints
+  // Composite unique constraints - CORRECTED SYNTAX
   companyEmailUnique: unique('company_email_unique').on(table.companyId, table.email),
   companyEmployeeIdUnique: unique('company_employee_id_unique').on(table.companyId, table.employeeId),
 }));
@@ -64,18 +64,12 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Relations
+// Relations - REMOVED companiesRelations (it's already in platform.ts)
 export const usersRelations = relations(users, ({ one, many }) => ({
   company: one(companies, {
     fields: [users.companyId],
     references: [companies.id],
   }),
-  auditLogs: many(auditLogs),
-  notifications: many(notifications),
-}));
-
-export const companiesRelations = relations(companies, ({ many }) => ({
-  users: many(users),
   auditLogs: many(auditLogs),
   notifications: many(notifications),
 }));

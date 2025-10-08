@@ -12,6 +12,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./shared/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   auth-service:
     build: ./services/auth_service
@@ -19,19 +24,15 @@ services:
       - "3001:3001"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
-      - JWT_SECRET=your-jwt-secret
+      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
+      - NODE_ENV=development
+      - PORT=3001
     depends_on:
-      - db
-
-  user-service:
-    build: ./services/user_service
-    ports:
-      - "3002:3002"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
-      - AUTH_SERVICE_URL=http://auth-service:3001
-    depends_on:
-      - db
+      db:
+        condition: service_healthy
+    volumes:
+      - ./services/auth_service:/app
+      - /app/node_modules
 
 volumes:
   postgres_data:

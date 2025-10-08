@@ -8,7 +8,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('24h'),
   USER_SERVICE_URL: z.string().url().default('http://user-service:3002'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
-  BCRYPT_ROUNDS: z.string().transform(Number).default('12'),
+  BCRYPT_ROUNDS: z.string().transform(Number).default('14'),
 });
 
 export const env = envSchema.parse(process.env);
