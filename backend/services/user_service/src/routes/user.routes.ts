@@ -1,2 +1,2 @@
-// Main application entry point
+// User management routes
 // This file will be implemented later

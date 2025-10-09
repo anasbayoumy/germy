@@ -1,2 +1,2 @@
-// Main application entry point
+// Common TypeScript type definitions
 // This file will be implemented later

@@ -1,2 +1,2 @@
-// Main application entry point
+// File upload API endpoints
 // This file will be implemented later

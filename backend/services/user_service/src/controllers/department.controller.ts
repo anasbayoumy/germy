@@ -1,2 +1,2 @@
-// Main application entry point
+// Department management API endpoints
 // This file will be implemented later

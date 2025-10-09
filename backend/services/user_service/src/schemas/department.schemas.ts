@@ -1,2 +1,2 @@
-// Main application entry point
+// Department validation schemas
 // This file will be implemented later

@@ -1,2 +1,2 @@
-// Main application entry point
+// File upload routes
 // This file will be implemented later

@@ -34,5 +34,22 @@ services:
       - ./services/auth_service:/app
       - /app/node_modules
 
+  user-service:
+    build: ./services/user_service
+    ports:
+      - "3002:3002"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
+      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
+      - NODE_ENV=development
+      - PORT=3001
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./services/user_service:/app
+      - /app/node_modules
+
+
 volumes:
   postgres_data:

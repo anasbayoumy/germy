@@ -1,2 +1,2 @@
-// Main application entry point
+// Export all database schemas
 // This file will be implemented later

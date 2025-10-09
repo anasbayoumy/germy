@@ -1,2 +1,2 @@
-// Main application entry point
+// Team management business logic
 // This file will be implemented later

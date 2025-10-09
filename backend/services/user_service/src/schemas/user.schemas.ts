@@ -1,2 +1,2 @@
-// Main application entry point
+// User validation schemas
 // This file will be implemented later

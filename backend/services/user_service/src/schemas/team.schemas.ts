@@ -1,2 +1,2 @@
-// Main application entry point
+// Team validation schemas
 // This file will be implemented later
