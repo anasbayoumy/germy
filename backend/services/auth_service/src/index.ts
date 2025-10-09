@@ -19,14 +19,15 @@ dotenv.config();
 
 const app = express();
 
-// Rate limiting
+// Rate limiting (disabled in test environment)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: env.NODE_ENV === 'test' ? 10000 : 100, // Higher limit for tests
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',
   },
+  skip: (req) => env.NODE_ENV === 'test', // Skip rate limiting in tests
 });
 
 // Middleware
@@ -34,6 +35,8 @@ app.use(helmet());
 app.use(cors({
   origin: env.FRONTEND_URL,
   credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
 }));
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
@@ -45,6 +48,7 @@ app.get('/health', (req, res) => {
     status: 'OK',
     service: 'auth-service',
     timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
     version: '1.0.0',
   });
 });

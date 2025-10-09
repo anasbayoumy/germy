@@ -63,6 +63,14 @@ export function requirePlatformAdmin(req: AuthenticatedRequest, res: Response, n
   requireRole(['platform_super_admin'])(req, res, next);
 }
 
+export function requireCompanySuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  requireRole(['company_super_admin'])(req, res, next);
+}
+
 export function requireCompanyAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  requireRole(['company_admin'])(req, res, next);
+}
+
+export function requireCompanyAdminOrHigher(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   requireRole(['company_super_admin', 'company_admin'])(req, res, next);
 }

@@ -8,8 +8,124 @@ import { generateToken } from '../services/jwt.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export class AuthController {
-  private authService = new AuthService();
+  private readonly authService = new AuthService();
 
+  // Platform Super Admin Login
+  async loginPlatformAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.loginPlatformAdmin(
+        { email, password },
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(401).json(result);
+        return;
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Platform admin login controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Company Super Admin Login
+  async loginSuperAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.loginCompanyUser(
+        { email, password },
+        'company_super_admin',
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(401).json(result);
+        return;
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Super admin login controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Company Admin Login
+  async loginAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.loginCompanyUser(
+        { email, password },
+        'company_admin',
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(401).json(result);
+        return;
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Admin login controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Employee Login
+  async loginUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.loginCompanyUser(
+        { email, password },
+        'employee',
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(401).json(result);
+        return;
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger.error('User login controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Legacy login method (for backward compatibility)
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
@@ -37,6 +153,129 @@ export class AuthController {
     }
   }
 
+  // Platform Admin Registration (requires platform admin authentication)
+  async registerPlatformAdmin(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { email, password, firstName, lastName, phone } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+      const createdBy = req.user?.userId || '';
+
+      const result = await this.authService.registerPlatformAdmin(
+        { email, password, firstName, lastName, phone },
+        createdBy,
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Platform admin registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Company Super Admin Registration (public - creates company + super admin)
+  async registerCompanySuperAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const { companyName, companyDomain, firstName, lastName, email, password, phone, industry, companySize } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.registerCompanySuperAdmin(
+        { companyName, companyDomain, firstName, lastName, email, password, phone, industry, companySize },
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Company super admin registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Company Admin Registration (requires super admin authentication)
+  async registerCompanyAdmin(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { email, password, firstName, lastName, phone } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+      const companyId = req.user?.companyId || '';
+      const createdBy = req.user?.userId || '';
+
+      const result = await this.authService.registerCompanyAdmin(
+        { email, password, firstName, lastName, phone },
+        companyId,
+        createdBy,
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Company admin registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Employee Registration (requires admin authentication)
+  async registerEmployee(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { email, password, firstName, lastName, phone } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+      const companyId = req.user?.companyId || '';
+      const createdBy = req.user?.userId || '';
+
+      const result = await this.authService.registerEmployee(
+        { email, password, firstName, lastName, phone },
+        companyId,
+        createdBy,
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Employee registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Legacy register method (for backward compatibility)
   async register(req: Request, res: Response): Promise<void> {
     try {
       const {
