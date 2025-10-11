@@ -1,0 +1,829 @@
+{
+  "info": {
+    "name": "User Registration - All Roles Collection",
+    "description": "Complete registration collection for all user roles: Platform Admin, Company Super Admin, Company Admin, and Employee",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "platform_admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "company_super_admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "company_admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employee_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "company_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Platform Admin Registration",
+      "item": [
+        {
+          "name": "Register First Platform Admin (Manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Platform\",\n  \"lastName\": \"Admin\",\n  \"email\": \"platform.admin@system.com\",\n  \"password\": \"PlatformAdmin123!\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/platform/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "platform", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Platform Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"platform.admin@system.com\",\n  \"password\": \"PlatformAdmin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/platform/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "platform", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.token) {",
+                  "        pm.environment.set('platform_admin_token', response.token);",
+                  "        console.log('Platform Admin token saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Register Additional Platform Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platform_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Secondary\",\n  \"lastName\": \"Platform Admin\",\n  \"email\": \"secondary.platform@system.com\",\n  \"password\": \"SecondaryAdmin123!\",\n  \"phone\": \"+1234567891\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/platform/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "platform", "register"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Company Super Admin Registration",
+      "item": [
+        {
+          "name": "Register Company + Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"TechCorp Solutions\",\n  \"companyDomain\": \"techcorp.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"email\": \"john.smith@techcorp.com\",\n  \"password\": \"SuperAdmin123!\",\n  \"phone\": \"+1234567892\",\n  \"industry\": \"Technology\",\n  \"companySize\": \"50-200\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/super_admin/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "super_admin", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.company && response.company.id) {",
+                  "        pm.environment.set('company_id', response.company.id);",
+                  "        console.log('Company ID saved:', response.company.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login Company Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.smith@techcorp.com\",\n  \"password\": \"SuperAdmin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/super_admin/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "super_admin", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.token) {",
+                  "        pm.environment.set('company_super_admin_token', response.token);",
+                  "        console.log('Company Super Admin token saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Register Another Company + Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"InnovateLabs Inc\",\n  \"companyDomain\": \"innovatelabs.com\",\n  \"firstName\": \"Sarah\",\n  \"lastName\": \"Johnson\",\n  \"email\": \"sarah.johnson@innovatelabs.com\",\n  \"password\": \"InnovateAdmin123!\",\n  \"phone\": \"+1234567893\",\n  \"industry\": \"Software Development\",\n  \"companySize\": \"10-50\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/super_admin/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "super_admin", "register"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Company Admin Registration",
+      "item": [
+        {
+          "name": "Register Company Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{company_super_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Michael\",\n  \"lastName\": \"Brown\",\n  \"email\": \"michael.brown@techcorp.com\",\n  \"password\": \"CompanyAdmin123!\",\n  \"phone\": \"+1234567894\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/admin/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "admin", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Company Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"michael.brown@techcorp.com\",\n  \"password\": \"CompanyAdmin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/admin/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "admin", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.token) {",
+                  "        pm.environment.set('company_admin_token', response.token);",
+                  "        console.log('Company Admin token saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Register Another Company Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{company_super_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Emily\",\n  \"lastName\": \"Davis\",\n  \"email\": \"emily.davis@techcorp.com\",\n  \"password\": \"EmilyAdmin123!\",\n  \"phone\": \"+1234567895\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/admin/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "admin", "register"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Employee Registration",
+      "item": [
+        {
+          "name": "Register Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{company_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"David\",\n  \"lastName\": \"Wilson\",\n  \"email\": \"david.wilson@techcorp.com\",\n  \"password\": \"Employee123!\",\n  \"phone\": \"+1234567896\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/user/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "user", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"david.wilson@techcorp.com\",\n  \"password\": \"Employee123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "user", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.token) {",
+                  "        pm.environment.set('employee_token', response.token);",
+                  "        console.log('Employee token saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Register Multiple Employees",
+          "item": [
+            {
+              "name": "Register Frontend Developer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{company_admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Alice\",\n  \"lastName\": \"Johnson\",\n  \"email\": \"alice.johnson@techcorp.com\",\n  \"password\": \"FrontendDev123!\",\n  \"phone\": \"+1234567897\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/user/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "user", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Register Backend Developer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{company_admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Bob\",\n  \"lastName\": \"Anderson\",\n  \"email\": \"bob.anderson@techcorp.com\",\n  \"password\": \"BackendDev123!\",\n  \"phone\": \"+1234567898\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/user/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "user", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Register UI/UX Designer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{company_admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Carol\",\n  \"lastName\": \"Martinez\",\n  \"email\": \"carol.martinez@techcorp.com\",\n  \"password\": \"Designer123!\",\n  \"phone\": \"+1234567899\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/user/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "user", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Register QA Engineer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{company_admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Daniel\",\n  \"lastName\": \"Taylor\",\n  \"email\": \"daniel.taylor@techcorp.com\",\n  \"password\": \"QAEngineer123!\",\n  \"phone\": \"+1234567800\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/user/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "user", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Register Project Manager",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{company_admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Eva\",\n  \"lastName\": \"Garcia\",\n  \"email\": \"eva.garcia@techcorp.com\",\n  \"password\": \"ProjectMgr123!\",\n  \"phone\": \"+1234567801\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/user/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "user", "register"]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Legacy Registration (Backward Compatibility)",
+      "item": [
+        {
+          "name": "Legacy Register (Auto-detect role)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"LegacyCorp Ltd\",\n  \"companyDomain\": \"legacycorp.com\",\n  \"firstName\": \"Frank\",\n  \"lastName\": \"Miller\",\n  \"email\": \"frank.miller@legacycorp.com\",\n  \"password\": \"LegacyUser123!\",\n  \"phone\": \"+1234567802\",\n  \"industry\": \"Consulting\",\n  \"companySize\": \"5-20\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Login All Roles",
+      "item": [
+        {
+          "name": "Login Platform Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"platform.admin@system.com\",\n  \"password\": \"PlatformAdmin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/platform/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "platform", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Company Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.smith@techcorp.com\",\n  \"password\": \"SuperAdmin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/super_admin/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "super_admin", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Company Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"michael.brown@techcorp.com\",\n  \"password\": \"CompanyAdmin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/admin/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "admin", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"david.wilson@techcorp.com\",\n  \"password\": \"Employee123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "user", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Legacy Login (Auto-detect)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"frank.miller@legacycorp.com\",\n  \"password\": \"LegacyUser123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Password Management",
+      "item": [
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"david.wilson@techcorp.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "forgot-password"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"reset_token_here\",\n  \"password\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "reset-password"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Token Management",
+      "item": [
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{platform_admin_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify-token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "verify-token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platform_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platform_admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platform_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+

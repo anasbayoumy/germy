@@ -1,0 +1,771 @@
+{
+  "info": {
+    "name": "User Service API Collection",
+    "description": "Complete API collection for User Service - includes all endpoints for user management, teams, departments, and file uploads",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3002",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "team_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "department_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "company_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users?page=1&limit=20&search=&role=&isActive=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "search", "value": ""},
+                {"key": "role", "value": ""},
+                {"key": "isActive", "value": ""}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/search?q=john&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "search"],
+              "query": [
+                {"key": "q", "value": "john"},
+                {"key": "limit", "value": "10"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"+1234567890\",\n  \"position\": \"Senior Developer\",\n  \"department\": \"Engineering\",\n  \"salary\": 75000,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "deactivate"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Preferences & Settings",
+      "item": [
+        {
+          "name": "Get User Preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/preferences",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "preferences"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"dark\",\n  \"language\": \"en\",\n  \"timezone\": \"UTC\",\n  \"dateFormat\": \"MM/DD/YYYY\",\n  \"timeFormat\": \"12h\",\n  \"notifications\": {\n    \"email\": true,\n    \"push\": false,\n    \"sms\": false\n  },\n  \"privacy\": {\n    \"profileVisible\": true,\n    \"showEmail\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/preferences",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "preferences"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "settings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workHoursStart\": \"09:00\",\n  \"workHoursEnd\": \"17:00\",\n  \"workDays\": [1, 2, 3, 4, 5],\n  \"breakDuration\": 60,\n  \"overtimeEnabled\": true,\n  \"remoteWorkEnabled\": true,\n  \"attendanceReminders\": {\n    \"clockIn\": true,\n    \"clockOut\": true,\n    \"breakReminder\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "settings"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Activities & Analytics",
+      "item": [
+        {
+          "name": "Get User Activities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/activities?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "activities"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "statistics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Activity Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/activity-summary?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "activity-summary"],
+              "query": [
+                {"key": "days", "value": "30"}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Company User Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/analytics/company/{{company_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "analytics", "company", "{{company_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bulk Operations",
+      "item": [
+        {
+          "name": "Bulk Update Users",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\"{{user_id}}\"],\n  \"updateData\": {\n    \"department\": \"Engineering\",\n    \"isActive\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/bulk/update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "bulk", "update"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Export Company Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/export/company/{{company_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "export", "company", "{{company_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Import Users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usersData\": [\n    {\n      \"email\": \"newuser@company.com\",\n      \"firstName\": \"New\",\n      \"lastName\": \"User\",\n      \"phone\": \"+1234567890\",\n      \"position\": \"Developer\",\n      \"department\": \"Engineering\",\n      \"role\": \"employee\",\n      \"isActive\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/import",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "import"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Team Management",
+      "item": [
+        {
+          "name": "Get All Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/teams?page=1&limit=20&search=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "search", "value": ""}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Team by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/teams/{{team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams", "{{team_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Frontend Development\",\n  \"description\": \"Frontend development team\",\n  \"managerId\": \"{{user_id}}\",\n  \"color\": \"#3B82F6\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/teams",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Team",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Frontend Development Team\",\n  \"description\": \"Updated frontend development team\",\n  \"managerId\": \"{{user_id}}\",\n  \"color\": \"#10B981\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/teams/{{team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams", "{{team_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Team",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/teams/{{team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams", "{{team_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Team Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/teams/{{team_id}}/members",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams", "{{team_id}}", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Team Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"roleInTeam\": \"member\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/teams/{{team_id}}/members",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams", "{{team_id}}", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Team Member",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/teams/{{team_id}}/members/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "teams", "{{team_id}}", "members", "{{user_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Department Management",
+      "item": [
+        {
+          "name": "Get All Departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/departments?page=1&limit=20&search=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "search", "value": ""}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Department Hierarchy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/departments/hierarchy",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "hierarchy"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Department by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/departments/{{department_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "{{department_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineering\",\n  \"description\": \"Engineering department\",\n  \"parentId\": null,\n  \"managerId\": \"{{user_id}}\",\n  \"color\": \"#10B981\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/departments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Department",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineering Department\",\n  \"description\": \"Updated engineering department\",\n  \"managerId\": \"{{user_id}}\",\n  \"color\": \"#3B82F6\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/departments/{{department_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "{{department_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Department",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/departments/{{department_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "{{department_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Department Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/departments/{{department_id}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "{{department_id}}", "users"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add User to Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"role\": \"member\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/departments/{{department_id}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "{{department_id}}", "users"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove User from Department",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/departments/{{department_id}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "departments", "{{department_id}}", "users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Upload",
+      "item": [
+        {
+          "name": "Upload Profile Picture",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Profile Picture",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile Picture",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List User Files",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}/files",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}", "files"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get File Metadata",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}/files/{{filename}}/metadata",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}", "files", "{{filename}}", "metadata"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Serve File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}/files/{{filename}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}", "files", "{{filename}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Delete Files",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filenames\": [\"file1.jpg\", \"file2.png\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/files/profiles/{{user_id}}/files/bulk",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "profiles", "{{user_id}}", "files", "bulk"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

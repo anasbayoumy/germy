@@ -42,7 +42,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
       - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - NODE_ENV=development
-      - PORT=3001
+      - PORT=3002
     depends_on:
       db:
         condition: service_healthy
