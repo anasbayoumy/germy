@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../services/jwt.service';
+import { tokenBlacklistService } from '../services/token-blacklist.service';
 import { logger } from '../utils/logger';
 
 export interface AuthenticatedRequest extends Request {
@@ -10,7 +11,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -19,6 +20,16 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
       res.status(401).json({
         success: false,
         message: 'Access token required',
+      });
+      return;
+    }
+
+    // Check if token is blacklisted
+    const isBlacklisted = await tokenBlacklistService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      res.status(403).json({
+        success: false,
+        message: 'Token has been revoked',
       });
       return;
     }

@@ -8,6 +8,14 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('24h'),
   USER_SERVICE_URL: z.string().url().default('http://user-service:3002'),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+  
+  // Email configuration
+  FROM_EMAIL: z.string().email().default('noreply@germy.com'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SENDGRID_API_KEY: z.string().optional(),
   BCRYPT_ROUNDS: z.string().transform(Number).default('14'),
 });
 

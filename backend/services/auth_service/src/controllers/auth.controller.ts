@@ -324,28 +324,6 @@ export class AuthController {
     }
   }
 
-  async logout(req: Request, res: Response): Promise<void> {
-    try {
-//=======================================================================================================
-//=======================================================================================================
-//=======================================================================================================
-      // In a more sophisticated setup, you might want to blacklist the token
-      // For now, we'll just return success
-//=======================================================================================================
-//=======================================================================================================
-//=======================================================================================================
-      res.json({
-        success: true,
-        message: 'Logout successful',
-      });
-    } catch (error) {
-      logger.error('Logout controller error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
 
   async refreshToken(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
@@ -411,8 +389,10 @@ export class AuthController {
   async forgotPassword(req: Request, res: Response): Promise<void> {
     try {
       const { email } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
 
-      const result = await this.authService.forgotPassword(email);
+      const result = await this.authService.forgotPassword(email, ipAddress, userAgent);
 
       res.json(result);
     } catch (error) {
@@ -457,6 +437,39 @@ export class AuthController {
       });
     } catch (error) {
       logger.error('Verify token controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  async logout(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.split(' ')[1];
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      if (!token || !req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+        return;
+      }
+
+      const result = await this.authService.logout(
+        token,
+        req.user.userId,
+        req.user.companyId,
+        ipAddress,
+        userAgent
+      );
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Logout controller error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',

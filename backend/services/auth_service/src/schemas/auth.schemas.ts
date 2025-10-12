@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PasswordPolicyService } from '../utils/password-policy';
 
 export const loginSchema = z.object({
   body: z.object({
@@ -13,7 +14,11 @@ export const registerPlatformAdminSchema = z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     email: z.string().email('Invalid email format'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
+        message: 'Password does not meet security requirements',
+      }),
     phone: z.string().optional(),
   }),
 });
@@ -26,7 +31,11 @@ export const registerCompanySuperAdminSchema = z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     email: z.string().email('Invalid email format'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
+        message: 'Password does not meet security requirements',
+      }),
     phone: z.string().optional(),
     industry: z.string().optional(),
     companySize: z.string().optional(),
@@ -39,7 +48,11 @@ export const registerCompanyAdminSchema = z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     email: z.string().email('Invalid email format'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
+        message: 'Password does not meet security requirements',
+      }),
     phone: z.string().optional(),
   }),
 });
@@ -50,7 +63,11 @@ export const registerEmployeeSchema = z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     email: z.string().email('Invalid email format'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
+        message: 'Password does not meet security requirements',
+      }),
     phone: z.string().optional(),
   }),
 });
@@ -63,7 +80,11 @@ export const registerSchema = z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     email: z.string().email('Invalid email format'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
+        message: 'Password does not meet security requirements',
+      }),
     phone: z.string().optional(),
     industry: z.string().optional(),
     companySize: z.string().optional(),
@@ -79,7 +100,11 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   body: z.object({
     token: z.string().min(1, 'Reset token is required'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
+        message: 'Password does not meet security requirements',
+      }),
   }),
 });
 

@@ -64,6 +64,19 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Blacklisted Tokens (for logout security)
+export const blacklistedTokens = pgTable('blacklisted_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  token: text('token').notNull(),
+  userId: uuid('user_id').notNull(),
+  companyId: uuid('company_id').notNull(),
+  reason: varchar('reason', { length: 50 }).notNull().default('logout'), // logout, security, admin_revoke
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  tokenUnique: unique('blacklisted_token_unique').on(table.token),
+}));
+
 // Relations - REMOVED companiesRelations (it's already in platform.ts)
 export const usersRelations = relations(users, ({ one, many }) => ({
   company: one(companies, {

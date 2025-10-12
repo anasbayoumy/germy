@@ -1,14 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 import { logger } from '../utils/logger';
+import { SanitizationService } from '../utils/sanitization';
 
 export function validateRequest(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
+      // Sanitize request data before validation
+      const sanitizedBody = SanitizationService.sanitizeObject(req.body);
+      const sanitizedQuery = SanitizationService.sanitizeObject(req.query);
+      const sanitizedParams = SanitizationService.sanitizeObject(req.params);
+
+      // Update request with sanitized data
+      req.body = sanitizedBody;
+      req.query = sanitizedQuery;
+      req.params = sanitizedParams;
+
       schema.parse({
-        body: req.body,
-        query: req.query,
-        params: req.params,
+        body: sanitizedBody,
+        query: sanitizedQuery,
+        params: sanitizedParams,
       });
       next();
     } catch (error) {

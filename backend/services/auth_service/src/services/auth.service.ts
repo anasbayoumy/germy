@@ -5,12 +5,15 @@ import { logger } from '../utils/logger';
 import { hashPassword, comparePassword } from '../utils/bcrypt';
 import { generateToken, verifyToken } from './jwt.service';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  RegisterData, 
-  PlatformAdminRegisterData, 
-  CompanySuperAdminRegisterData, 
-  CompanyAdminRegisterData, 
-  EmployeeRegisterData 
+import { emailService } from './email.service';
+import { tokenBlacklistService } from './token-blacklist.service';
+import { securityLoggingService } from './security-logging.service';
+import {
+  RegisterData,
+  PlatformAdminRegisterData,
+  CompanySuperAdminRegisterData,
+  CompanyAdminRegisterData,
+  EmployeeRegisterData
 } from '../types/auth.types';
 
 export interface LoginCredentials {
@@ -40,6 +43,12 @@ export class AuthService {
         .limit(1);
 
       if (platformAdmin.length === 0) {
+        // Log failed login attempt
+        await securityLoggingService.logLoginFailure(credentials.email, ipAddress, userAgent, {
+          role: 'platform_super_admin',
+          reason: 'user_not_found',
+        });
+        
         return {
           success: false,
           message: 'Invalid credentials',
@@ -50,6 +59,13 @@ export class AuthService {
 
       // Check if admin is active
       if (!admin.isActive) {
+        // Log failed login attempt
+        await securityLoggingService.logLoginFailure(credentials.email, ipAddress, userAgent, {
+          role: 'platform_super_admin',
+          reason: 'account_deactivated',
+          userId: admin.id,
+        });
+        
         return {
           success: false,
           message: 'Account is deactivated',
@@ -59,6 +75,13 @@ export class AuthService {
       // Verify password
       const isValidPassword = await comparePassword(credentials.password, admin.passwordHash);
       if (!isValidPassword) {
+        // Log failed login attempt
+        await securityLoggingService.logLoginFailure(credentials.email, ipAddress, userAgent, {
+          role: 'platform_super_admin',
+          reason: 'invalid_password',
+          userId: admin.id,
+        });
+        
         return {
           success: false,
           message: 'Invalid credentials',
@@ -89,6 +112,9 @@ export class AuthService {
         userAgent,
       });
 
+      // Log successful login
+      await securityLoggingService.logLoginSuccess(admin.id, admin.email, 'platform', ipAddress, userAgent);
+      
       logger.info(`Platform admin logged in: ${admin.email}`);
 
       return {
@@ -819,7 +845,7 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(email: string): Promise<AuthResult> {
+  async forgotPassword(email: string, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
     try {
       const user = await db
         .select()
@@ -828,12 +854,14 @@ export class AuthService {
         .limit(1);
 
       if (user.length === 0) {
-        // Don't reveal if email exists or not
+        // Don't reveal if email exists or not for security
         return {
           success: true,
-          message: 'If the email exists, a password reset link has been sent',
+          message: 'If an account with that email exists, a password reset link has been sent',
         };
       }
+
+      const userData = user[0];
 
       // Generate reset token
       const resetToken = uuidv4();
@@ -844,22 +872,42 @@ export class AuthService {
         .set({
           passwordResetToken: resetToken,
           passwordResetExpires: resetExpires,
+          updatedAt: new Date(),
         })
-        .where(eq(users.id, user[0].id));
+        .where(eq(users.id, userData.id));
 
-//=======================================================================================================
-//=======================================================================================================
-//=======================================================================================================
-      // TODO: Send email with reset link
-//=======================================================================================================
-//=======================================================================================================
-//=======================================================================================================
+      // Send password reset email
+      const emailSent = await emailService.sendPasswordResetEmail({
+        email: userData.email,
+        resetToken,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+      });
 
-      logger.info(`Password reset requested for: ${email}`);
+      if (!emailSent) {
+        logger.error(`Failed to send password reset email to: ${email}`);
+        return {
+          success: false,
+          message: 'Failed to send password reset email. Please try again later.',
+        };
+      }
+
+      // Log the password reset request
+      await this.logAuditEvent({
+        userId: userData.id,
+        companyId: userData.companyId,
+        action: 'password_reset_requested',
+        resourceType: 'user',
+        resourceId: userData.id,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`Password reset email sent to: ${email}`);
 
       return {
         success: true,
-        message: 'If the email exists, a password reset link has been sent',
+        message: 'If an account with that email exists, a password reset link has been sent',
       };
     } catch (error) {
       logger.error('Forgot password error:', error);
@@ -928,6 +976,50 @@ export class AuthService {
       return { valid: true, payload };
     } catch (error) {
       return { valid: false };
+    }
+  }
+
+  // Logout (blacklist token)
+  async logout(token: string, userId: string, companyId: string, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
+    try {
+      // Blacklist the token
+      const blacklisted = await tokenBlacklistService.blacklistToken(
+        token,
+        userId,
+        companyId,
+        'logout'
+      );
+
+      if (!blacklisted) {
+        return {
+          success: false,
+          message: 'Failed to logout. Please try again.',
+        };
+      }
+
+      // Log the logout event
+      await this.logAuditEvent({
+        userId,
+        companyId,
+        action: 'logout',
+        resourceType: 'user',
+        resourceId: userId,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User logged out: ${userId}`);
+
+      return {
+        success: true,
+        message: 'Logged out successfully',
+      };
+    } catch (error) {
+      logger.error('Logout error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
     }
   }
 

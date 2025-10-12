@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
 // Import routes
@@ -10,6 +9,7 @@ import platformRoutes from './routes/platform.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { generalLimiter, healthCheckLimiter } from './middleware/rate-limiting.middleware';
 import { logger } from './utils/logger';
 import { testConnection } from './config/database';
 import { env } from './config/env';
@@ -19,17 +19,6 @@ dotenv.config();
 
 const app = express();
 
-// Rate limiting (disabled in test environment)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env.NODE_ENV === 'test' ? 10000 : 100, // Higher limit for tests
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.',
-  },
-  skip: (req) => env.NODE_ENV === 'test', // Skip rate limiting in tests
-});
-
 // Middleware
 app.use(helmet());
 app.use(cors({
@@ -38,12 +27,17 @@ app.use(cors({
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
 }));
-app.use(limiter);
+
+// Skip rate limiting in test environment
+if (env.NODE_ENV !== 'test') {
+  app.use(generalLimiter);
+}
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoint with specific rate limiting
+app.get('/health', healthCheckLimiter, (req, res) => {
   res.status(200).json({
     status: 'OK',
     service: 'auth-service',

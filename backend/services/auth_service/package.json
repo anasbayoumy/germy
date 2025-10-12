@@ -24,7 +24,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:platform": "tsx -e \"import('./src/db/seed').then(m => m.seedPlatformAdmin())\"",
+    "db:seed:test": "tsx -e \"import('./src/db/seed').then(m => m.seedTestData())\""
   },
   "dependencies": {
     "drizzle-orm": "^0.29.0",
@@ -39,7 +41,9 @@
     "dotenv": "^16.3.1",
     "winston": "^3.11.0",
     "express-rate-limit": "^7.1.5",
-    "express-validator": "^7.0.1"
+    "express-validator": "^7.0.1",
+    "nodemailer": "^6.9.7",
+    "isomorphic-dompurify": "^2.6.0"
   },
   "devDependencies": {
     "drizzle-kit": "^0.20.4",
@@ -57,7 +61,8 @@
     "@types/jest": "^29.5.8",
     "ts-jest": "^29.1.1",
     "supertest": "^6.3.3",
-    "@types/supertest": "^2.0.16"
+    "@types/supertest": "^2.0.16",
+    "@types/nodemailer": "^6.4.14"
   },
   "keywords": ["attendance", "saas", "microservice", "authentication"],
   "author": "Germy Team",

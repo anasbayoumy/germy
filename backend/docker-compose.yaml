@@ -27,6 +27,11 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - NODE_ENV=development
       - PORT=3001
+      - FROM_EMAIL=noreply@germy.com
+      - SMTP_HOST=smtp.ethereal.email
+      - SMTP_PORT=587
+      - SMTP_USER=elnora.greenholt@ethereal.email
+      - SMTP_PASS=rcXCZYt1s5XPqhzEq8
     depends_on:
       db:
         condition: service_healthy

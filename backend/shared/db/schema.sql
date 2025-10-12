@@ -248,6 +248,17 @@ CREATE TABLE notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Blacklisted Tokens (for logout security)
+CREATE TABLE blacklisted_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    token TEXT NOT NULL UNIQUE,
+    user_id UUID NOT NULL,
+    company_id UUID NOT NULL,
+    reason VARCHAR(50) NOT NULL DEFAULT 'logout', -- logout, security, admin_revoke
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- =====================================================
 -- 7. AUDIT & LOGGING TABLES
 -- =====================================================
@@ -393,9 +404,9 @@ CREATE POLICY users_company_isolation ON users
 
 -- Insert default subscription plans
 INSERT INTO subscription_plans (name, description, price_monthly, price_yearly, max_employees, features) VALUES
-('Starter', 'Perfect for small teams', 29.99, 299.99, 10, '["basic_attendance", "basic_reports"]'),
-('Professional', 'Ideal for growing companies', 79.99, 799.99, 50, '["advanced_attendance", "analytics", "integrations"]'),
-('Enterprise', 'For large organizations', 199.99, 1999.99, 500, '["all_features", "custom_integrations", "priority_support"]');
+('Starter', 'Perfect for small teams', 29, 300, 10, '["basic_attendance", "basic_reports"]'),
+('Professional', 'Ideal for growing companies', 79, 816, 50, '["advanced_attendance", "analytics", "integrations"]'),
+('Enterprise', 'For large organizations', 199, 2051, 500, '["all_features", "custom_integrations", "priority_support"]');
 
 -- Insert platform admin (you)
 INSERT INTO platform_admins (email, password_hash, first_name, last_name) VALUES
