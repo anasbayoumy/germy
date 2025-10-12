@@ -55,6 +55,33 @@ services:
       - ./services/user_service:/app
       - /app/node_modules
 
+  attendance-service:
+    build: ./services/attendance_service
+    ports:
+      - "3003:3003"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
+      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
+      - NODE_ENV=development
+      - PORT=3003
+      - GEMINI_API_KEY=your-gemini-api-key
+      - FACE_COMPARISON_THRESHOLD=70
+      - LIVENESS_THRESHOLD=80
+      - DEFAULT_GEOFENCE_RADIUS=350
+      - FRAUD_DETECTION_ENABLED=true
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+    depends_on:
+      db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+    volumes:
+      - ./services/attendance_service:/app
+      - /app/node_modules
+      - ./services/attendance_service/uploads:/app/uploads
 
 volumes:
   postgres_data:
