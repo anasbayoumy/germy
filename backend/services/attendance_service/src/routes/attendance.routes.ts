@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AttendanceController } from '../controllers/attendance.controller';
-import { authenticateToken, requireUserAccess } from '../middleware/auth.middleware';
+import { authenticateToken, requireUserAccess, requireAdminAccess } from '../middleware/auth.middleware';
 import { validateRequest, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { uploadSingle, requireFile, validateImageFile } from '../middleware/upload.middleware';
 import { attendanceSchemas } from '../schemas/attendance.schemas';
@@ -18,7 +18,7 @@ router.post(
   requireFile,
   validateImageFile,
   validateRequest(attendanceSchemas.clockIn),
-  attendanceController.clockIn
+  attendanceController.clockIn.bind(attendanceController)
 );
 
 router.post(
@@ -27,14 +27,14 @@ router.post(
   requireFile,
   validateImageFile,
   validateRequest(attendanceSchemas.clockOut),
-  attendanceController.clockOut
+  attendanceController.clockOut.bind(attendanceController)
 );
 
 router.get(
   '/status/:userId',
   validateParams(attendanceSchemas.userIdParams),
   requireUserAccess,
-  attendanceController.getAttendanceStatus
+  attendanceController.getAttendanceStatus.bind(attendanceController)
 );
 
 router.get(
@@ -42,51 +42,45 @@ router.get(
   validateParams(attendanceSchemas.userIdParams),
   validateQuery(attendanceSchemas.getAttendanceHistoryQuery),
   requireUserAccess,
-  attendanceController.getAttendanceHistory
+  attendanceController.getAttendanceHistory.bind(attendanceController)
 );
 
 router.get(
   '/today/:userId',
   validateParams(attendanceSchemas.userIdParams),
   requireUserAccess,
-  attendanceController.getTodayAttendance
+  attendanceController.getTodayAttendance.bind(attendanceController)
 );
 
-// Management endpoints
+// Admin endpoints
 router.get(
-  '/company/:companyId',
-  validateParams(attendanceSchemas.companyIdParams),
+  '/company',
   validateQuery(attendanceSchemas.getCompanyAttendanceQuery),
-  attendanceController.getCompanyAttendance
+  requireAdminAccess,
+  attendanceController.getCompanyAttendance.bind(attendanceController)
 );
 
 router.get(
-  '/flagged/:companyId',
-  validateParams(attendanceSchemas.companyIdParams),
+  '/flagged',
   validateQuery(attendanceSchemas.getFlaggedAttendanceQuery),
-  attendanceController.getFlaggedAttendance
+  requireAdminAccess,
+  attendanceController.getFlaggedAttendance.bind(attendanceController)
 );
 
-// Approval endpoints
-router.put(
+router.post(
   '/:attendanceId/approve',
   validateParams(attendanceSchemas.attendanceIdParams),
   validateRequest(attendanceSchemas.approveAttendance),
-  attendanceController.approveAttendance
+  requireAdminAccess,
+  attendanceController.approveAttendance.bind(attendanceController)
 );
 
-router.put(
+router.post(
   '/:attendanceId/reject',
   validateParams(attendanceSchemas.attendanceIdParams),
   validateRequest(attendanceSchemas.rejectAttendance),
-  attendanceController.rejectAttendance
-);
-
-router.put(
-  '/:attendanceId/flag',
-  validateParams(attendanceSchemas.attendanceIdParams),
-  validateRequest(attendanceSchemas.flagAttendance),
-  attendanceController.flagAttendance
+  requireAdminAccess,
+  attendanceController.rejectAttendance.bind(attendanceController)
 );
 
 export default router;

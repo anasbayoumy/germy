@@ -1,185 +1,143 @@
 import multer from 'multer';
-import path from 'path';
 import { Request, Response, NextFunction } from 'express';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
-import { handleFileError } from './error.middleware';
 
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(process.cwd(), env.UPLOAD_PATH);
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  },
-});
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
 
-// File filter function
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = env.ALLOWED_FILE_TYPES.split(',');
-  
-  if (allowedTypes.includes(file.mimetype)) {
+// File filter for images
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only images are allowed.'));
+    cb(new Error('Only image files are allowed'));
   }
 };
 
 // Configure multer
-const upload = multer({
+export const uploadSingle = (fieldName: string) => multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: env.MAX_FILE_SIZE,
-    files: 5, // Maximum 5 files per request
-  },
-});
-
-// Upload middleware for single file
-export const uploadSingle = (fieldName: string = 'photo') => {
-  return upload.single(fieldName);
-};
-
-// Upload middleware for multiple files
-export const uploadMultiple = (fieldName: string = 'photos', maxCount: number = 5) => {
-  return upload.array(fieldName, maxCount);
-};
-
-// Upload middleware for specific fields
-export const uploadFields = (fields: multer.Field[]) => {
-  return upload.fields(fields);
-};
-
-// Middleware to handle upload errors
-export const handleUploadError = (
-  error: any,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  if (error instanceof multer.MulterError) {
-    const customError = handleFileError(error);
-    next(customError);
-    return;
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1
   }
-  
-  if (error.message === 'Invalid file type. Only images are allowed.') {
-    const customError = handleFileError({ code: 'INVALID_FILE_TYPE' });
-    next(customError);
-    return;
+}).single(fieldName);
+
+export const uploadMultiple = (fieldName: string, maxCount: number = 5) => multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    files: maxCount
   }
-  
-  next(error);
-};
+}).array(fieldName, maxCount);
 
 // Middleware to require file upload
-export const requireFile = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.file && !req.files) {
+export function requireFile(req: Request, res: Response, next: NextFunction): void {
+  if (!req.file) {
     res.status(400).json({
       success: false,
-      message: 'File upload is required',
+      message: 'File is required',
+      error: 'MISSING_FILE'
     });
     return;
   }
+
   next();
-};
+}
 
 // Middleware to validate image file
-export const validateImageFile = (req: Request, res: Response, next: NextFunction): void => {
-  const file = req.file as Express.Multer.File;
-  
-  if (!file) {
+export function validateImageFile(req: Request, res: Response, next: NextFunction): void {
+  if (!req.file) {
     res.status(400).json({
       success: false,
-      message: 'No file uploaded',
+      message: 'Image file is required',
+      error: 'MISSING_IMAGE'
     });
     return;
   }
+
+  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   
-  // Check file size
-  if (file.size > env.MAX_FILE_SIZE) {
-    res.status(413).json({
-      success: false,
-      message: 'File too large',
-    });
-    return;
-  }
-  
-  // Check file type
-  const allowedTypes = env.ALLOWED_FILE_TYPES.split(',');
-  if (!allowedTypes.includes(file.mimetype)) {
+  if (!allowedMimeTypes.includes(req.file.mimetype)) {
     res.status(400).json({
       success: false,
-      message: 'Invalid file type',
+      message: 'Invalid image format. Allowed formats: JPEG, PNG, GIF, WebP',
+      error: 'INVALID_IMAGE_FORMAT'
     });
     return;
   }
-  
-  // Log file upload
-  logger.info('File uploaded successfully', {
-    filename: file.filename,
-    originalName: file.originalname,
-    mimetype: file.mimetype,
-    size: file.size,
-    userId: (req as any).user?.userId,
+
+  // Check file size (10MB limit)
+  if (req.file.size > 10 * 1024 * 1024) {
+    res.status(400).json({
+      success: false,
+      message: 'Image file too large. Maximum size: 10MB',
+      error: 'FILE_TOO_LARGE'
+    });
+    return;
+  }
+
+  next();
+}
+
+// Error handler for upload errors
+export function handleUploadError(error: Error, _req: Request, res: Response, _next: NextFunction): void {
+  if (error instanceof multer.MulterError) {
+    logger.error('Upload error:', {
+      service: 'attendance-service',
+      error: error.message,
+      code: error.code,
+      field: error.field
+    });
+
+    switch (error.code) {
+      case 'LIMIT_FILE_SIZE':
+        res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size: 10MB',
+          error: 'FILE_TOO_LARGE'
+        });
+        return;
+      case 'LIMIT_FILE_COUNT':
+        res.status(400).json({
+          success: false,
+          message: 'Too many files. Maximum: 1 file',
+          error: 'TOO_MANY_FILES'
+        });
+        return;
+      case 'LIMIT_UNEXPECTED_FILE':
+        res.status(400).json({
+          success: false,
+          message: 'Unexpected file field',
+          error: 'UNEXPECTED_FILE'
+        });
+        return;
+      default:
+        res.status(400).json({
+          success: false,
+          message: 'Upload error',
+          error: 'UPLOAD_ERROR'
+        });
+        return;
+    }
+  }
+
+  if (error.message === 'Only image files are allowed') {
+    res.status(400).json({
+      success: false,
+      message: 'Only image files are allowed',
+      error: 'INVALID_FILE_TYPE'
+    });
+    return;
+  }
+
+  logger.error('Upload middleware error:', error);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: 'INTERNAL_ERROR'
   });
-  
-  next();
-};
-
-// Middleware to process uploaded image
-export const processImage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const file = req.file as Express.Multer.File;
-    
-    if (!file) {
-      next();
-      return;
-    }
-    
-    // Add file metadata to request
-    (req as any).fileMetadata = {
-      filename: file.filename,
-      originalName: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-      path: file.path,
-      uploadedAt: new Date(),
-    };
-    
-    next();
-  } catch (error) {
-    logger.error('Image processing error:', error);
-    next(error);
-  }
-};
-
-// Middleware to clean up uploaded files on error
-export const cleanupFiles = (req: Request, res: Response, next: NextFunction): void => {
-  const originalSend = res.send;
-  
-  res.send = function(data) {
-    // Clean up files if response is an error
-    if (res.statusCode >= 400) {
-      const file = req.file as Express.Multer.File;
-      if (file && file.path) {
-        try {
-          require('fs').unlinkSync(file.path);
-          logger.info('Cleaned up uploaded file:', file.filename);
-        } catch (error) {
-          logger.error('Error cleaning up file:', error);
-        }
-      }
-    }
-    
-    return originalSend.call(this, data);
-  };
-  
-  next();
-};
-
-export default upload;
+  return;
+}

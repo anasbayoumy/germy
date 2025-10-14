@@ -76,7 +76,7 @@ export class AuthController {
 
       const result = await this.authService.loginCompanyUser(
         { email, password },
-        'company_admin',
+        'admin',
         ipAddress,
         userAgent
       );
@@ -105,7 +105,7 @@ export class AuthController {
 
       const result = await this.authService.loginCompanyUser(
         { email, password },
-        'employee',
+        'user',
         ipAddress,
         userAgent
       );

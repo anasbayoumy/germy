@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 // Import routes
 import authRoutes from './routes/auth.routes';
 import platformRoutes from './routes/platform.routes';
+import approvalRoutes from './routes/approval.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -50,6 +51,7 @@ app.get('/health', healthCheckLimiter, (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/platform', platformRoutes);
+app.use('/api/approvals', approvalRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);

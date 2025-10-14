@@ -1,6 +1,6 @@
 import { eq, and, gt } from 'drizzle-orm';
 import { db } from '../config/database';
-import { users, companies, auditLogs, platformAdmins } from '../db/schema';
+import { users, companies, auditLogs } from '../db/schema';
 import { logger } from '../utils/logger';
 import { hashPassword, comparePassword } from '../utils/bcrypt';
 import { generateToken, verifyToken } from './jwt.service';
@@ -33,19 +33,24 @@ export interface AuthResult {
 
 export class AuthService {
 
-  // Platform Super Admin Login
+  // Platform Admin Login
   async loginPlatformAdmin(credentials: LoginCredentials, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
     try {
       const platformAdmin = await db
         .select()
-        .from(platformAdmins)
-        .where(eq(platformAdmins.email, credentials.email))
+        .from(users)
+        .where(
+          and(
+            eq(users.email, credentials.email),
+            eq(users.role, 'platform_admin')
+          )
+        )
         .limit(1);
 
       if (platformAdmin.length === 0) {
         // Log failed login attempt
         await securityLoggingService.logLoginFailure(credentials.email, ipAddress, userAgent, {
-          role: 'platform_super_admin',
+          role: 'platform_admin',
           reason: 'user_not_found',
         });
         
@@ -61,7 +66,7 @@ export class AuthService {
       if (!admin.isActive) {
         // Log failed login attempt
         await securityLoggingService.logLoginFailure(credentials.email, ipAddress, userAgent, {
-          role: 'platform_super_admin',
+          role: 'platform_admin',
           reason: 'account_deactivated',
           userId: admin.id,
         });
@@ -72,12 +77,27 @@ export class AuthService {
         };
       }
 
+      // Check if admin has platform panel access
+      if (!admin.platformPanelAccess) {
+        return {
+          success: false,
+          message: 'Platform panel access not granted',
+        };
+      }
+
       // Verify password
+      if (!admin.passwordHash) {
+        return {
+          success: false,
+          message: 'Invalid credentials',
+        };
+      }
+
       const isValidPassword = await comparePassword(credentials.password, admin.passwordHash);
       if (!isValidPassword) {
         // Log failed login attempt
         await securityLoggingService.logLoginFailure(credentials.email, ipAddress, userAgent, {
-          role: 'platform_super_admin',
+          role: 'platform_admin',
           reason: 'invalid_password',
           userId: admin.id,
         });
@@ -88,32 +108,35 @@ export class AuthService {
         };
       }
 
-      // Update last login
+      // Update last login and platform panel usage
       await db
-        .update(platformAdmins)
-        .set({ lastLogin: new Date() })
-        .where(eq(platformAdmins.id, admin.id));
+        .update(users)
+        .set({ 
+          lastLogin: new Date(),
+          platformPanelLastUsed: new Date()
+        })
+        .where(eq(users.id, admin.id));
 
       // Generate JWT token
       const token = generateToken({
         userId: admin.id,
-        companyId: 'platform', // Special identifier for platform admins
-        role: 'platform_super_admin',
+        companyId: admin.companyId || 'platform', // Use companyId if available, otherwise 'platform'
+        role: 'platform_admin',
       });
 
       // Log the login
       await this.logAuditEvent({
         userId: admin.id,
-        companyId: 'platform',
+        companyId: admin.companyId || 'platform',
         action: 'platform_admin_login',
-        resourceType: 'platform_admin',
+        resourceType: 'user',
         resourceId: admin.id,
         ipAddress,
         userAgent,
       });
 
       // Log successful login
-      await securityLoggingService.logLoginSuccess(admin.id, admin.email, 'platform', ipAddress, userAgent);
+      await securityLoggingService.logLoginSuccess(admin.id, admin.email, admin.companyId || 'platform', ipAddress, userAgent);
       
       logger.info(`Platform admin logged in: ${admin.email}`);
 
@@ -126,7 +149,7 @@ export class AuthService {
             email: admin.email,
             firstName: admin.firstName,
             lastName: admin.lastName,
-            role: 'platform_super_admin',
+            role: 'platform_admin',
             companyName: 'Platform',
           },
           token,
@@ -156,6 +179,10 @@ export class AuthService {
           companyId: users.companyId,
           isActive: users.isActive,
           isVerified: users.isVerified,
+          approvalStatus: users.approvalStatus,
+          mobileAppAccess: users.mobileAppAccess,
+          dashboardAccess: users.dashboardAccess,
+          platformPanelAccess: users.platformPanelAccess,
           companyName: companies.name,
           companyActive: companies.isActive,
         })
@@ -186,11 +213,42 @@ export class AuthService {
         };
       }
 
+      // Check if user is approved
+      if (userData.approvalStatus !== 'approved') {
+        return {
+          success: false,
+          message: 'Account is pending approval',
+        };
+      }
+
       // Check if company is active
       if (!userData.companyActive) {
         return {
           success: false,
           message: 'Company account is deactivated',
+        };
+      }
+
+      // Check role-based access permissions
+      let hasRequiredAccess = false;
+      switch (targetRole) {
+        case 'user':
+          hasRequiredAccess = userData.mobileAppAccess;
+          break;
+        case 'admin':
+          hasRequiredAccess = userData.mobileAppAccess && userData.dashboardAccess;
+          break;
+        case 'company_super_admin':
+          hasRequiredAccess = userData.dashboardAccess;
+          break;
+        default:
+          hasRequiredAccess = false;
+      }
+
+      if (!hasRequiredAccess) {
+        return {
+          success: false,
+          message: 'Insufficient access permissions for this role',
         };
       }
 
@@ -210,23 +268,31 @@ export class AuthService {
         };
       }
 
-      // Update last login
+      // Update last login and access tracking
+      const updateData: any = { lastLogin: new Date() };
+      if (targetRole === 'user' || targetRole === 'admin') {
+        updateData.mobileAppLastUsed = new Date();
+      }
+      if (targetRole === 'admin' || targetRole === 'company_super_admin') {
+        updateData.dashboardLastUsed = new Date();
+      }
+
       await db
         .update(users)
-        .set({ lastLogin: new Date() })
+        .set(updateData)
         .where(eq(users.id, userData.id));
 
       // Generate JWT token
       const token = generateToken({
         userId: userData.id,
-        companyId: userData.companyId,
+        companyId: userData.companyId || 'platform',
         role: userData.role,
       });
 
       // Log the login
       await this.logAuditEvent({
         userId: userData.id,
-        companyId: userData.companyId,
+        companyId: userData.companyId || 'platform',
         action: `${targetRole}_login`,
         resourceType: 'user',
         resourceId: userData.id,
@@ -333,14 +399,14 @@ export class AuthService {
       // Generate JWT token
       const token = generateToken({
         userId: userData.id,
-        companyId: userData.companyId,
+        companyId: userData.companyId || 'platform',
         role: userData.role,
       });
 
       // Log the login
       await this.logAuditEvent({
         userId: userData.id,
-        companyId: userData.companyId,
+        companyId: userData.companyId || 'platform',
         action: 'login',
         resourceType: 'user',
         resourceId: userData.id,
@@ -380,8 +446,8 @@ export class AuthService {
       // Check if platform admin email already exists
       const existingAdmin = await db
         .select()
-        .from(platformAdmins)
-        .where(eq(platformAdmins.email, data.email))
+        .from(users)
+        .where(eq(users.email, data.email))
         .limit(1);
 
       if (existingAdmin.length > 0) {
@@ -394,13 +460,16 @@ export class AuthService {
       // Create platform admin
       const hashedPassword = await hashPassword(data.password);
       const [platformAdmin] = await db
-        .insert(platformAdmins)
+        .insert(users)
         .values({
           email: data.email,
           passwordHash: hashedPassword,
           firstName: data.firstName,
           lastName: data.lastName,
-          role: 'platform_super_admin',
+          role: 'platform_admin',
+          platformPanelAccess: true,
+          approvalStatus: 'approved',
+          isVerified: true,
         })
         .returning();
 
@@ -409,7 +478,7 @@ export class AuthService {
         userId: createdBy,
         companyId: 'platform',
         action: 'create_platform_admin',
-        resourceType: 'platform_admin',
+        resourceType: 'user',
         resourceId: platformAdmin.id,
         ipAddress,
         userAgent,
@@ -426,7 +495,7 @@ export class AuthService {
             email: platformAdmin.email,
             firstName: platformAdmin.firstName,
             lastName: platformAdmin.lastName,
-            role: 'platform_super_admin',
+            role: 'platform_admin',
             companyName: 'Platform',
           },
         },
@@ -497,6 +566,8 @@ export class AuthService {
             lastName: data.lastName,
             phone: data.phone,
             role: 'company_super_admin',
+            dashboardAccess: true,
+            approvalStatus: 'approved',
             isVerified: true,
           })
           .returning();
@@ -602,8 +673,11 @@ export class AuthService {
           firstName: data.firstName,
           lastName: data.lastName,
           phone: data.phone,
-          role: 'company_admin',
-          isVerified: true,
+            role: 'admin',
+            mobileAppAccess: true,
+            dashboardAccess: true,
+            approvalStatus: 'approved',
+            isVerified: true,
         })
         .returning();
 
@@ -692,8 +766,10 @@ export class AuthService {
           firstName: data.firstName,
           lastName: data.lastName,
           phone: data.phone,
-          role: 'employee',
-          isVerified: true,
+            role: 'user',
+            mobileAppAccess: true,
+            approvalStatus: 'pending',
+            isVerified: true,
         })
         .returning();
 
@@ -790,6 +866,8 @@ export class AuthService {
             lastName: data.lastName,
             phone: data.phone,
             role: 'company_super_admin',
+            dashboardAccess: true,
+            approvalStatus: 'approved',
             isVerified: true,
           })
           .returning();
@@ -895,7 +973,7 @@ export class AuthService {
       // Log the password reset request
       await this.logAuditEvent({
         userId: userData.id,
-        companyId: userData.companyId,
+        companyId: userData.companyId || 'platform',
         action: 'password_reset_requested',
         resourceType: 'user',
         resourceId: userData.id,

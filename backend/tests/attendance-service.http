@@ -1,0 +1,237 @@
+### Attendance Service HTTP Tests
+### Test scenarios for the complete attendance service
+
+@baseUrl = http://localhost:3002
+@authToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTEyMyIsInJvbGUiOiJ1c2VyIiwiY29tcGFueUlkIjoiY29tcGFueS0xMjMiLCJpYXQiOjE3MzQ5NzI4MDAsImV4cCI6MTczNDk3NjQwMH0.example
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Clock In - Success
+POST {{baseUrl}}/api/attendance/clock-in
+Authorization: {{authToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="userId"
+
+user-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="companyId"
+
+company-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="workMode"
+
+onsite
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="location"
+
+{"latitude": 40.7128, "longitude": -74.0060, "accuracy": 10, "address": "New York, NY"}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="deviceInfo"
+
+{"deviceType": "mobile", "os": "iOS", "version": "17.0", "model": "iPhone 15"}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="userAgent"
+
+Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="photo"; filename="face.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/face.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Clock In - Remote Work
+POST {{baseUrl}}/api/attendance/clock-in
+Authorization: {{authToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="userId"
+
+user-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="companyId"
+
+company-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="workMode"
+
+remote
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="deviceInfo"
+
+{"deviceType": "desktop", "os": "Windows", "version": "11", "browser": "Chrome"}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="photo"; filename="face.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/face.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Clock In - Missing Photo (Error)
+POST {{baseUrl}}/api/attendance/clock-in
+Authorization: {{authToken}}
+Content-Type: application/json
+
+{
+  "userId": "user-123",
+  "companyId": "company-123",
+  "workMode": "onsite"
+}
+
+### Clock In - Invalid Work Mode (Error)
+POST {{baseUrl}}/api/attendance/clock-in
+Authorization: {{authToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="userId"
+
+user-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="companyId"
+
+company-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="workMode"
+
+invalid-mode
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="photo"; filename="face.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/face.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Clock Out - Success
+POST {{baseUrl}}/api/attendance/clock-out
+Authorization: {{authToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="userId"
+
+user-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="companyId"
+
+company-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attendanceId"
+
+attendance-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="photo"; filename="face.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/face.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Clock Out - Already Clocked Out (Error)
+POST {{baseUrl}}/api/attendance/clock-out
+Authorization: {{authToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="userId"
+
+user-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="companyId"
+
+company-123
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attendanceId"
+
+attendance-already-clocked-out
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="photo"; filename="face.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/face.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Get Current Attendance Status
+GET {{baseUrl}}/api/attendance/status/user-123
+Authorization: {{authToken}}
+
+### Get Current Attendance Status - No Active Attendance
+GET {{baseUrl}}/api/attendance/status/user-no-active
+Authorization: {{authToken}}
+
+### Get Attendance History
+GET {{baseUrl}}/api/attendance/history/user-123?page=1&limit=10&startDate=2024-01-01&endDate=2024-12-31&workMode=onsite
+Authorization: {{authToken}}
+
+### Get Today's Attendance
+GET {{baseUrl}}/api/attendance/today/user-123
+Authorization: {{authToken}}
+
+### Get Company Attendance (Admin)
+GET {{baseUrl}}/api/attendance/company?page=1&limit=20&date=2024-01-15&workMode=onsite&status=active
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0xMjMiLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55SWQiOiJjb21wYW55LTEyMyIsImlhdCI6MTczNDk3MjgwMCwiZXhwIjoxNzM0OTc2NDAwfQ.example
+
+### Get Flagged Attendance (Admin)
+GET {{baseUrl}}/api/attendance/flagged?page=1&limit=20&riskLevel=high
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0xMjMiLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55SWQiOiJjb21wYW55LTEyMyIsImlhdCI6MTczNDk3MjgwMCwiZXhwIjoxNzM0OTc2NDAwfQ.example
+
+### Approve Attendance (Admin)
+POST {{baseUrl}}/api/attendance/attendance-123/approve
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0xMjMiLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55SWQiOiJjb21wYW55LTEyMyIsImlhdCI6MTczNDk3MjgwMCwiZXhwIjoxNzM0OTc2NDAwfQ.example
+Content-Type: application/json
+
+{
+  "notes": "Face verification passed, location verified"
+}
+
+### Reject Attendance (Admin)
+POST {{baseUrl}}/api/attendance/attendance-123/reject
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0xMjMiLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55SWQiOiJjb21wYW55LTEyMyIsImlhdCI6MTczNDk3MjgwMCwiZXhwIjoxNzM0OTc2NDAwfQ.example
+Content-Type: application/json
+
+{
+  "reason": "Face verification failed",
+  "notes": "Photo quality too low, please retake"
+}
+
+### Unauthorized Access (No Token)
+GET {{baseUrl}}/api/attendance/status/user-123
+
+### Unauthorized Access (Invalid Token)
+GET {{baseUrl}}/api/attendance/status/user-123
+Authorization: Bearer invalid-token
+
+### Access Denied (User trying to access admin endpoint)
+GET {{baseUrl}}/api/attendance/company
+Authorization: {{authToken}}
+
+### Access Denied (User trying to access another user's data)
+GET {{baseUrl}}/api/attendance/status/other-user-456
+Authorization: {{authToken}}
+
+### Invalid UUID Format
+GET {{baseUrl}}/api/attendance/status/invalid-uuid
+Authorization: {{authToken}}
+
+### Pagination Test
+GET {{baseUrl}}/api/attendance/history/user-123?page=2&limit=5
+Authorization: {{authToken}}
+
+### Date Range Filter Test
+GET {{baseUrl}}/api/attendance/history/user-123?startDate=2024-01-01T00:00:00Z&endDate=2024-01-31T23:59:59Z
+Authorization: {{authToken}}
+
+### Work Mode Filter Test
+GET {{baseUrl}}/api/attendance/history/user-123?workMode=remote
+Authorization: {{authToken}}
+
+### Company Attendance with Multiple Filters
+GET {{baseUrl}}/api/attendance/company?date=2024-01-15T00:00:00Z&workMode=hybrid&status=flagged&page=1&limit=10
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0xMjMiLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55SWQiOiJjb21wYW55LTEyMyIsImlhdCI6MTczNDk3MjgwMCwiZXhwIjoxNzM0OTc2NDAwfQ.example
+
+### Flagged Attendance with Risk Level Filter
+GET {{baseUrl}}/api/attendance/flagged?riskLevel=medium&page=1&limit=15
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0xMjMiLCJyb2xlIjoiYWRtaW4iLCJjb21wYW55SWQiOiJjb21wYW55LTEyMyIsImlhdCI6MTczNDk3MjgwMCwiZXhwIjoxNzM0OTc2NDAwfQ.example

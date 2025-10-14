@@ -1,0 +1,446 @@
+### Germy User Service - Comprehensive HTTP Tests
+### Test Environment: http://localhost:3002
+
+### Variables
+@baseUrl = http://localhost:3002
+@adminEmail = admin@company.com
+@userEmail = user@company.com
+@platformAdminEmail = platform@admin.com
+@password = TestPassword123!
+@companyId = 550e8400-e29b-41d4-a716-446655440000
+@userId = 550e8400-e29b-41d4-a716-446655440001
+@adminId = 550e8400-e29b-41d4-a716-446655440002
+
+### ===========================================
+### 1. HEALTH CHECK
+### ===========================================
+
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### ===========================================
+### 2. USER PROFILE MANAGEMENT
+### ===========================================
+
+### Get User Profile (Self)
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer {{userToken}}
+
+### Update User Profile (Self)
+PUT {{baseUrl}}/api/users/profile
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "phone": "+1234567893",
+  "position": "Senior Software Developer",
+  "department": "Engineering",
+  "profilePhotoUrl": "https://example.com/profile.jpg"
+}
+
+### Get User Profile by ID (Admin)
+GET {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{adminToken}}
+
+### Update User Profile by ID (Admin)
+PUT {{baseUrl}}/api/users/{{userId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "phone": "+1234567893",
+  "position": "Senior Software Developer",
+  "department": "Engineering",
+  "salary": "75000.00",
+  "hireDate": "2024-01-15T00:00:00Z"
+}
+
+### ===========================================
+### 3. USER MANAGEMENT (ADMIN)
+### ===========================================
+
+### Get All Users (Admin)
+GET {{baseUrl}}/api/users?page=1&limit=10&search=john
+Authorization: Bearer {{adminToken}}
+
+### Get Users by Department
+GET {{baseUrl}}/api/users?department=Engineering&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Get Users by Role
+GET {{baseUrl}}/api/users?role=user&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Get Users by Work Mode
+GET {{baseUrl}}/api/users?workMode=hybrid&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### ===========================================
+### 4. TEAM MANAGEMENT
+### ===========================================
+
+### Create Team (Admin)
+POST {{baseUrl}}/api/teams
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Frontend Team",
+  "description": "Frontend development team",
+  "department": "Engineering",
+  "teamLeadId": "{{userId}}",
+  "memberIds": ["{{userId}}", "{{userId2}}"]
+}
+
+### Get All Teams (Admin)
+GET {{baseUrl}}/api/teams?page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Get Team by ID
+GET {{baseUrl}}/api/teams/{{teamId}}
+Authorization: Bearer {{adminToken}}
+
+### Update Team (Admin)
+PUT {{baseUrl}}/api/teams/{{teamId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Frontend Development Team",
+  "description": "Frontend development and UI/UX team",
+  "teamLeadId": "{{userId}}"
+}
+
+### Add Team Members (Admin)
+POST {{baseUrl}}/api/teams/{{teamId}}/members
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "memberIds": ["{{userId3}}", "{{userId4}}"]
+}
+
+### Remove Team Members (Admin)
+DELETE {{baseUrl}}/api/teams/{{teamId}}/members
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "memberIds": ["{{userId3}}"]
+}
+
+### Delete Team (Admin)
+DELETE {{baseUrl}}/api/teams/{{teamId}}
+Authorization: Bearer {{adminToken}}
+
+### ===========================================
+### 5. DEPARTMENT MANAGEMENT
+### ===========================================
+
+### Create Department (Admin)
+POST {{baseUrl}}/api/departments
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Product Management",
+  "description": "Product strategy and roadmap",
+  "headId": "{{adminId}}",
+  "budget": "500000.00"
+}
+
+### Get All Departments (Admin)
+GET {{baseUrl}}/api/departments?page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Get Department by ID
+GET {{baseUrl}}/api/departments/{{departmentId}}
+Authorization: Bearer {{adminToken}}
+
+### Update Department (Admin)
+PUT {{baseUrl}}/api/departments/{{departmentId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Product & Strategy",
+  "description": "Product strategy, roadmap, and business development",
+  "budget": "750000.00"
+}
+
+### Delete Department (Admin)
+DELETE {{baseUrl}}/api/departments/{{departmentId}}
+Authorization: Bearer {{adminToken}}
+
+### ===========================================
+### 6. WORK MODE MANAGEMENT
+### ===========================================
+
+### Get User Work Mode
+GET {{baseUrl}}/api/users/{{userId}}/work-mode
+Authorization: Bearer {{adminToken}}
+
+### Update User Work Mode (Admin)
+PUT {{baseUrl}}/api/users/{{userId}}/work-mode
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "workMode": "hybrid",
+  "hybridRemoteDays": 3,
+  "preferredRemoteDays": ["monday", "wednesday", "friday"],
+  "homeAddress": "456 Home Street, Remote City, RC 12345",
+  "homeLatitude": 37.7749,
+  "homeLongitude": -122.4194,
+  "homeGeofenceRadius": 100
+}
+
+### Get Work Mode Schedule
+GET {{baseUrl}}/api/users/{{userId}}/work-schedule?startDate=2024-01-01&endDate=2024-01-31
+Authorization: Bearer {{adminToken}}
+
+### Create Work Mode Schedule (Admin)
+POST {{baseUrl}}/api/users/{{userId}}/work-schedule
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "scheduleDate": "2024-01-15",
+  "workMode": "remote",
+  "notes": "Working from home due to weather"
+}
+
+### Update Work Mode Schedule (Admin)
+PUT {{baseUrl}}/api/users/{{userId}}/work-schedule/{{scheduleId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "workMode": "onsite",
+  "notes": "Changed to onsite for important meeting"
+}
+
+### ===========================================
+### 7. USER ACTIVITY & ANALYTICS
+### ===========================================
+
+### Get User Activity Summary (Admin)
+GET {{baseUrl}}/api/users/{{userId}}/activity?startDate=2024-01-01&endDate=2024-01-31
+Authorization: Bearer {{adminToken}}
+
+### Get Company User Analytics (Admin)
+GET {{baseUrl}}/api/analytics/users?startDate=2024-01-01&endDate=2024-01-31&groupBy=department
+Authorization: Bearer {{adminToken}}
+
+### Get Work Mode Analytics (Admin)
+GET {{baseUrl}}/api/analytics/work-modes?startDate=2024-01-01&endDate=2024-01-31
+Authorization: Bearer {{adminToken}}
+
+### Get Department Analytics (Admin)
+GET {{baseUrl}}/api/analytics/departments?startDate=2024-01-01&endDate=2024-01-31
+Authorization: Bearer {{adminToken}}
+
+### ===========================================
+### 8. USER SEARCH & FILTERING
+### ===========================================
+
+### Search Users by Name
+GET {{baseUrl}}/api/users/search?q=john&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Filter Users by Multiple Criteria
+GET {{baseUrl}}/api/users?department=Engineering&workMode=hybrid&role=user&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Get Users with Expiring Face Encodings
+GET {{baseUrl}}/api/users/expiring-face-encodings?days=7&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### ===========================================
+### 9. BULK OPERATIONS
+### ===========================================
+
+### Bulk Update User Work Modes (Admin)
+PUT {{baseUrl}}/api/users/bulk/work-mode
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "userIds": ["{{userId1}}", "{{userId2}}", "{{userId3}}"],
+  "workMode": "remote",
+  "reason": "Company-wide remote work policy"
+}
+
+### Bulk Update User Departments (Admin)
+PUT {{baseUrl}}/api/users/bulk/department
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "userIds": ["{{userId1}}", "{{userId2}}"],
+  "department": "Product Management",
+  "reason": "Department restructuring"
+}
+
+### Bulk Deactivate Users (Admin)
+PUT {{baseUrl}}/api/users/bulk/deactivate
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "userIds": ["{{userId1}}", "{{userId2}}"],
+  "reason": "End of contract"
+}
+
+### ===========================================
+### 10. USER EXPORT & REPORTING
+### ===========================================
+
+### Export Users to CSV (Admin)
+GET {{baseUrl}}/api/users/export/csv?department=Engineering&format=csv
+Authorization: Bearer {{adminToken}}
+
+### Export Users to Excel (Admin)
+GET {{baseUrl}}/api/users/export/excel?workMode=hybrid&format=xlsx
+Authorization: Bearer {{adminToken}}
+
+### Generate User Report (Admin)
+POST {{baseUrl}}/api/reports/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "reportType": "department_summary",
+  "startDate": "2024-01-01",
+  "endDate": "2024-01-31",
+  "filters": {
+    "department": "Engineering",
+    "workMode": "hybrid"
+  }
+}
+
+### ===========================================
+### 11. USER NOTIFICATIONS
+### ===========================================
+
+### Get User Notifications
+GET {{baseUrl}}/api/users/notifications?page=1&limit=10&unreadOnly=true
+Authorization: Bearer {{userToken}}
+
+### Mark Notification as Read
+PUT {{baseUrl}}/api/users/notifications/{{notificationId}}/read
+Authorization: Bearer {{userToken}}
+
+### Mark All Notifications as Read
+PUT {{baseUrl}}/api/users/notifications/read-all
+Authorization: Bearer {{userToken}}
+
+### ===========================================
+### 12. USER PREFERENCES
+### ===========================================
+
+### Get User Preferences
+GET {{baseUrl}}/api/users/preferences
+Authorization: Bearer {{userToken}}
+
+### Update User Preferences
+PUT {{baseUrl}}/api/users/preferences
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "notifications": {
+    "email": true,
+    "push": true,
+    "sms": false
+  },
+  "privacy": {
+    "profileVisibility": "company",
+    "showOnlineStatus": true
+  },
+  "workMode": {
+    "defaultWorkMode": "hybrid",
+    "preferredRemoteDays": ["monday", "wednesday", "friday"]
+  }
+}
+
+### ===========================================
+### 13. ERROR SCENARIOS
+### ===========================================
+
+### Unauthorized Access (No Token)
+GET {{baseUrl}}/api/users/profile
+
+### Invalid Token
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer invalid_token
+
+### User Accessing Admin Endpoints
+GET {{baseUrl}}/api/users?page=1&limit=10
+Authorization: Bearer {{userToken}}
+
+### Admin Accessing Platform Admin Endpoints
+GET {{baseUrl}}/api/platform/users
+Authorization: Bearer {{adminToken}}
+
+### Invalid User ID
+GET {{baseUrl}}/api/users/invalid-uuid
+Authorization: Bearer {{adminToken}}
+
+### Missing Required Fields
+PUT {{baseUrl}}/api/users/{{userId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "firstName": "John"
+  // Missing required fields
+}
+
+### ===========================================
+### 14. ROLE-BASED ACCESS TESTS
+### ===========================================
+
+### User (Self) - Can access own profile
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer {{userToken}}
+
+### User (Self) - Cannot access other users
+GET {{baseUrl}}/api/users/{{adminId}}
+Authorization: Bearer {{userToken}}
+
+### Admin - Can access company users
+GET {{baseUrl}}/api/users?page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Admin - Cannot access other company users
+GET {{baseUrl}}/api/users?companyId=other-company-id
+Authorization: Bearer {{adminToken}}
+
+### Super Admin - Can access all company users
+GET {{baseUrl}}/api/users?page=1&limit=10
+Authorization: Bearer {{superAdminToken}}
+
+### Platform Admin - Can access all users
+GET {{baseUrl}}/api/users?page=1&limit=10
+Authorization: Bearer {{platformAdminToken}}
+
+### ===========================================
+### 15. PERFORMANCE TESTS
+### ===========================================
+
+### Large Dataset Query
+GET {{baseUrl}}/api/users?page=1&limit=100
+Authorization: Bearer {{adminToken}}
+
+### Complex Filter Query
+GET {{baseUrl}}/api/users?department=Engineering&workMode=hybrid&role=user&search=john&page=1&limit=50
+Authorization: Bearer {{adminToken}}
+
+### Analytics Query with Date Range
+GET {{baseUrl}}/api/analytics/users?startDate=2023-01-01&endDate=2024-12-31&groupBy=month
+Authorization: Bearer {{adminToken}}

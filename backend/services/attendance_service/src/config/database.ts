@@ -3,12 +3,12 @@ import postgres from 'postgres';
 import { env } from './env';
 import { logger } from '../utils/logger';
 
-// Create postgres client
-const client = postgres(env.DATABASE_URL, {
-  max: 20, // Maximum connections
-  idle_timeout: 20, // Close idle connections after 20 seconds
-  connect_timeout: 10, // Connection timeout
-  ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+// Create postgres connection
+const connectionString = env.DATABASE_URL;
+const client = postgres(connectionString, {
+  max: 20,
+  idle_timeout: 20,
+  connect_timeout: 10,
 });
 
 // Create drizzle instance
@@ -18,21 +18,31 @@ export const db = drizzle(client);
 export async function testConnection(): Promise<boolean> {
   try {
     await client`SELECT 1`;
-    logger.info('Database connection successful');
+    logger.info('Database connection successful', {
+      service: 'attendance-service'
+    });
     return true;
   } catch (error) {
-    logger.error('Database connection failed:', error);
+    logger.error('Database connection failed:', {
+      service: 'attendance-service',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     return false;
   }
 }
 
-// Graceful shutdown
+// Close database connection
 export async function closeConnection(): Promise<void> {
   try {
     await client.end();
-    logger.info('Database connection closed');
+    logger.info('Database connection closed', {
+      service: 'attendance-service'
+    });
   } catch (error) {
-    logger.error('Error closing database connection:', error);
+    logger.error('Error closing database connection:', {
+      service: 'attendance-service',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
 
@@ -50,7 +60,7 @@ export async function healthCheck(): Promise<{
     
     return {
       status: 'healthy',
-      responseTime,
+      responseTime
     };
   } catch (error) {
     const responseTime = Date.now() - startTime;
@@ -58,7 +68,9 @@ export async function healthCheck(): Promise<{
     return {
       status: 'unhealthy',
       responseTime,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
+
+export default db;

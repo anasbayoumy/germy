@@ -28,19 +28,8 @@ CREATE TABLE subscription_plans (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Platform Super Admins (You and your team)
-CREATE TABLE platform_admins (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'platform_super_admin',
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    last_login TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Note: Platform Admins are now stored in the users table with role='platform_admin'
+-- This table is kept for backward compatibility but will be deprecated
 
 -- =====================================================
 -- 2. COMPANY MANAGEMENT TABLES
@@ -107,23 +96,45 @@ CREATE TABLE company_settings (
 -- 3. USER MANAGEMENT TABLES
 -- =====================================================
 
--- Users (All user types: company_super_admin, company_admin, employee)
+-- Users (4-role hierarchy: platform_admin, company_super_admin, admin, user)
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE, -- NULL for platform_admins
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255),
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     phone VARCHAR(50),
     employee_id VARCHAR(100), -- Company's internal employee ID
-    role VARCHAR(50) NOT NULL, -- company_super_admin, company_admin, employee
+    role VARCHAR(50) NOT NULL, -- platform_admin, company_super_admin, admin, user
     position VARCHAR(100),
     department VARCHAR(100),
     hire_date DATE,
     salary DECIMAL(12,2),
     profile_photo_url VARCHAR(500),
+    
+    -- Face encoding data (for users and admins only)
     face_encoding_data TEXT, -- Encrypted facial recognition data
+    face_encoding_created_at TIMESTAMP WITH TIME ZONE, -- When face was encoded
+    face_encoding_expires_at TIMESTAMP WITH TIME ZONE, -- 45 days from creation
+    face_encoding_quality_score DECIMAL(5,2), -- 0-100 quality score
+    
+    -- Work mode (for users and admins only)
+    work_mode VARCHAR(20) DEFAULT 'onsite', -- remote, hybrid, onsite
+    hybrid_remote_days INTEGER DEFAULT 0, -- Number of remote days per week for hybrid workers
+    preferred_remote_days JSONB DEFAULT '[]', -- Array of preferred remote days [1,2,3,4,5] (Mon-Fri)
+    home_address TEXT, -- For remote work verification
+    home_latitude DECIMAL(10, 8), -- Home location for geofencing
+    home_longitude DECIMAL(11, 8),
+    home_geofence_radius INTEGER DEFAULT 100, -- Radius in meters for home location
+    
+    -- Approval system
+    approval_status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, approved, rejected
+    approved_by UUID REFERENCES users(id), -- Who approved this user
+    approved_at TIMESTAMP WITH TIME ZONE, -- When approved
+    rejection_reason TEXT, -- Reason for rejection
+    
+    -- Access control
     is_active BOOLEAN NOT NULL DEFAULT true,
     is_verified BOOLEAN NOT NULL DEFAULT false,
     last_login TIMESTAMP WITH TIME ZONE,
@@ -131,6 +142,19 @@ CREATE TABLE users (
     password_reset_expires TIMESTAMP WITH TIME ZONE,
     email_verification_token VARCHAR(255),
     email_verified_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Mobile app access (users and admins only)
+    mobile_app_access BOOLEAN NOT NULL DEFAULT false,
+    mobile_app_last_used TIMESTAMP WITH TIME ZONE,
+    
+    -- Dashboard access (admins and super admins only)
+    dashboard_access BOOLEAN NOT NULL DEFAULT false,
+    dashboard_last_used TIMESTAMP WITH TIME ZONE,
+    
+    -- Platform panel access (platform admins only)
+    platform_panel_access BOOLEAN NOT NULL DEFAULT false,
+    platform_panel_last_used TIMESTAMP WITH TIME ZONE,
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(company_id, email),
@@ -161,7 +185,78 @@ CREATE TABLE user_teams (
 );
 
 -- =====================================================
--- 4. LOCATION & GEOFENCE TABLES
+-- 4. USER APPROVAL & WORKFLOW TABLES
+-- =====================================================
+
+-- User Approval Requests
+CREATE TABLE user_approval_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    requested_role VARCHAR(50) NOT NULL, -- user, admin, company_super_admin
+    request_type VARCHAR(50) NOT NULL, -- new_signup, role_change, reactivation
+    request_data JSONB, -- Additional request information
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, approved, rejected
+    reviewed_by UUID REFERENCES users(id), -- Who reviewed the request
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    review_notes TEXT,
+    rejection_reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Face Encoding History (Track 45-day refresh cycle)
+CREATE TABLE face_encoding_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    encoding_data TEXT NOT NULL, -- Encrypted face encoding
+    quality_score DECIMAL(5,2) NOT NULL, -- 0-100
+    encoding_version VARCHAR(20) NOT NULL DEFAULT 'v1',
+    is_active BOOLEAN DEFAULT true, -- Current active encoding
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, -- 45 days from creation
+    replaced_by UUID REFERENCES face_encoding_history(id) -- Next encoding
+);
+
+-- =====================================================
+-- 5. WORK MODE & SCHEDULING TABLES
+-- =====================================================
+
+-- Work Mode Schedules (For hybrid workers)
+CREATE TABLE work_mode_schedules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    schedule_date DATE NOT NULL,
+    work_mode VARCHAR(20) NOT NULL, -- remote, hybrid, onsite
+    location_type VARCHAR(50), -- office, home, client_site, travel
+    expected_location JSONB, -- Expected location data
+    is_approved BOOLEAN DEFAULT false,
+    approved_by UUID REFERENCES users(id),
+    approved_at TIMESTAMP WITH TIME ZONE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, schedule_date)
+);
+
+-- Work Mode Templates (For recurring schedules)
+CREATE TABLE work_mode_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    template_name VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    schedule_pattern JSONB NOT NULL, -- Weekly pattern: {"monday": "onsite", "tuesday": "remote", ...}
+    start_date DATE NOT NULL,
+    end_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =====================================================
+-- 5. LOCATION & GEOFENCE TABLES
 -- =====================================================
 
 -- Geofence Settings (Company's attendance locations)
@@ -189,6 +284,7 @@ CREATE TABLE attendance_records (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     geofence_id UUID REFERENCES geofence_settings(id),
+    work_mode_schedule_id UUID REFERENCES work_mode_schedules(id),
     clock_in_time TIMESTAMP WITH TIME ZONE NOT NULL,
     clock_out_time TIMESTAMP WITH TIME ZONE,
     clock_in_photo_url VARCHAR(500),
@@ -207,6 +303,28 @@ CREATE TABLE attendance_records (
     late_minutes INTEGER DEFAULT 0,
     notes TEXT,
     flagged_reasons JSONB DEFAULT '[]', -- Array of reasons why it was flagged
+    
+    -- AI Verification Results
+    face_similarity_score DECIMAL(5,2), -- 0-100
+    liveness_score DECIMAL(5,2), -- 0-100
+    activity_score DECIMAL(5,2), -- 0-100
+    productivity_score DECIMAL(5,2), -- 0-100
+    overall_risk_score DECIMAL(5,2), -- 0-100
+    ai_processing_time INTEGER, -- milliseconds
+    verification_metadata JSONB, -- Detailed AI verification data
+    
+    -- Device and Security
+    device_fingerprint VARCHAR(255),
+    user_agent TEXT,
+    device_info JSONB,
+    
+    -- Activity Data
+    productive_time INTEGER, -- minutes
+    break_time INTEGER, -- minutes
+    distraction_time INTEGER, -- minutes
+    work_applications JSONB,
+    activity_proof JSONB,
+    
     approved_by UUID REFERENCES users(id),
     approved_at TIMESTAMP WITH TIME ZONE,
     rejection_reason TEXT,
@@ -230,7 +348,72 @@ CREATE TABLE attendance_flags (
 );
 
 -- =====================================================
--- 6. NOTIFICATION TABLES
+-- 6. AI SERVICE TABLES
+-- =====================================================
+
+-- Note: Face encodings are now stored in face_encoding_history table
+-- This table is kept for backward compatibility but will be deprecated
+
+-- AI Verification Results
+CREATE TABLE ai_verification_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    attendance_id UUID NOT NULL REFERENCES attendance_records(id) ON DELETE CASCADE,
+    verification_type VARCHAR(50) NOT NULL, -- face_comparison, liveness, activity, location
+    ai_service VARCHAR(50) NOT NULL, -- arcface, gemini, custom_ml
+    input_data JSONB, -- Input data sent to AI service
+    output_data JSONB, -- AI service response
+    confidence_score DECIMAL(5,2), -- 0-100
+    processing_time INTEGER, -- milliseconds
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Fraud Detection Results
+CREATE TABLE fraud_detection_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    attendance_id UUID NOT NULL REFERENCES attendance_records(id) ON DELETE CASCADE,
+    overall_risk_score DECIMAL(5,2) NOT NULL, -- 0-100
+    risk_level VARCHAR(20) NOT NULL, -- LOW, MEDIUM, HIGH, CRITICAL
+    
+    -- Detection results
+    face_comparison_result JSONB,
+    liveness_detection_result JSONB,
+    activity_verification_result JSONB,
+    location_verification_result JSONB,
+    device_analysis_result JSONB,
+    behavioral_analysis_result JSONB,
+    
+    -- Flags and alerts
+    flags JSONB,
+    risk_factors JSONB,
+    evidence JSONB,
+    
+    -- Review status
+    requires_manual_review BOOLEAN DEFAULT false,
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    review_notes TEXT,
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- AI Service Logs
+CREATE TABLE ai_service_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    service_name VARCHAR(50) NOT NULL, -- arcface, gemini, fraud_detection, ml_analytics
+    request_id VARCHAR(255),
+    user_id UUID REFERENCES users(id),
+    company_id UUID REFERENCES companies(id),
+    request_data JSONB,
+    response_data JSONB,
+    processing_time INTEGER, -- milliseconds
+    status VARCHAR(20) NOT NULL, -- success, error, timeout
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =====================================================
+-- 7. NOTIFICATION TABLES
 -- =====================================================
 
 -- Notifications
@@ -335,6 +518,32 @@ CREATE INDEX idx_users_company_id ON users(company_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_employee_id ON users(employee_id);
+CREATE INDEX idx_users_work_mode ON users(work_mode);
+CREATE INDEX idx_users_approval_status ON users(approval_status);
+CREATE INDEX idx_users_mobile_app_access ON users(mobile_app_access);
+CREATE INDEX idx_users_dashboard_access ON users(dashboard_access);
+CREATE INDEX idx_users_platform_panel_access ON users(platform_panel_access);
+CREATE INDEX idx_users_face_encoding_expires_at ON users(face_encoding_expires_at);
+
+-- User approval request indexes
+CREATE INDEX idx_user_approval_requests_user_id ON user_approval_requests(user_id);
+CREATE INDEX idx_user_approval_requests_company_id ON user_approval_requests(company_id);
+CREATE INDEX idx_user_approval_requests_status ON user_approval_requests(status);
+CREATE INDEX idx_user_approval_requests_requested_role ON user_approval_requests(requested_role);
+CREATE INDEX idx_user_approval_requests_created_at ON user_approval_requests(created_at);
+
+-- Face encoding history indexes
+CREATE INDEX idx_face_encoding_history_user_id ON face_encoding_history(user_id);
+CREATE INDEX idx_face_encoding_history_company_id ON face_encoding_history(company_id);
+CREATE INDEX idx_face_encoding_history_is_active ON face_encoding_history(is_active);
+CREATE INDEX idx_face_encoding_history_expires_at ON face_encoding_history(expires_at);
+CREATE INDEX idx_face_encoding_history_created_at ON face_encoding_history(created_at);
+
+-- Work mode schedule indexes
+CREATE INDEX idx_work_mode_schedules_user_id ON work_mode_schedules(user_id);
+CREATE INDEX idx_work_mode_schedules_company_id ON work_mode_schedules(company_id);
+CREATE INDEX idx_work_mode_schedules_date ON work_mode_schedules(schedule_date);
+CREATE INDEX idx_work_mode_schedules_work_mode ON work_mode_schedules(work_mode);
 
 -- Attendance indexes
 CREATE INDEX idx_attendance_user_id ON attendance_records(user_id);
@@ -342,6 +551,22 @@ CREATE INDEX idx_attendance_company_id ON attendance_records(company_id);
 CREATE INDEX idx_attendance_clock_in_time ON attendance_records(clock_in_time);
 CREATE INDEX idx_attendance_status ON attendance_records(status);
 CREATE INDEX idx_attendance_work_type ON attendance_records(work_type);
+CREATE INDEX idx_attendance_risk_score ON attendance_records(overall_risk_score);
+
+-- AI service indexes (face_encodings table deprecated, using face_encoding_history)
+
+CREATE INDEX idx_ai_verification_attendance_id ON ai_verification_results(attendance_id);
+CREATE INDEX idx_ai_verification_type ON ai_verification_results(verification_type);
+CREATE INDEX idx_ai_verification_service ON ai_verification_results(ai_service);
+
+CREATE INDEX idx_fraud_detection_attendance_id ON fraud_detection_results(attendance_id);
+CREATE INDEX idx_fraud_detection_risk_level ON fraud_detection_results(risk_level);
+CREATE INDEX idx_fraud_detection_requires_review ON fraud_detection_results(requires_manual_review);
+
+CREATE INDEX idx_ai_service_logs_service ON ai_service_logs(service_name);
+CREATE INDEX idx_ai_service_logs_user_id ON ai_service_logs(user_id);
+CREATE INDEX idx_ai_service_logs_company_id ON ai_service_logs(company_id);
+CREATE INDEX idx_ai_service_logs_created_at ON ai_service_logs(created_at);
 
 -- Notification indexes
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
@@ -369,12 +594,14 @@ $$ language 'plpgsql';
 
 -- Apply triggers to relevant tables
 CREATE TRIGGER update_subscription_plans_updated_at BEFORE UPDATE ON subscription_plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_platform_admins_updated_at BEFORE UPDATE ON platform_admins FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_companies_updated_at BEFORE UPDATE ON companies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_company_subscriptions_updated_at BEFORE UPDATE ON company_subscriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_company_settings_updated_at BEFORE UPDATE ON company_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_teams_updated_at BEFORE UPDATE ON teams FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_approval_requests_updated_at BEFORE UPDATE ON user_approval_requests FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_work_mode_schedules_updated_at BEFORE UPDATE ON work_mode_schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_work_mode_templates_updated_at BEFORE UPDATE ON work_mode_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_geofence_settings_updated_at BEFORE UPDATE ON geofence_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_attendance_records_updated_at BEFORE UPDATE ON attendance_records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -387,6 +614,10 @@ CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations FOR 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_approval_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE face_encoding_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_mode_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_mode_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE geofence_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance_flags ENABLE ROW LEVEL SECURITY;
@@ -408,9 +639,9 @@ INSERT INTO subscription_plans (name, description, price_monthly, price_yearly, 
 ('Professional', 'Ideal for growing companies', 79, 816, 50, '["advanced_attendance", "analytics", "integrations"]'),
 ('Enterprise', 'For large organizations', 199, 2051, 500, '["all_features", "custom_integrations", "priority_support"]');
 
--- Insert platform admin (you)
-INSERT INTO platform_admins (email, password_hash, first_name, last_name) VALUES
-('admin@germy.com', crypt('admin123', gen_salt('bf')), 'Platform', 'Admin');
+-- Insert platform admin (you) - now in users table
+INSERT INTO users (email, password_hash, first_name, last_name, role, platform_panel_access, approval_status, is_active, is_verified) VALUES
+('admin@germy.com', crypt('admin123', gen_salt('bf')), 'Platform', 'Admin', 'platform_admin', true, 'approved', true, true);
 
 -- =====================================================
 -- 14. VIEWS FOR COMMON QUERIES
@@ -452,3 +683,40 @@ FROM companies c
 LEFT JOIN users u ON c.id = u.company_id
 LEFT JOIN attendance_records ar ON c.id = ar.company_id
 GROUP BY c.id, c.name;
+
+-- Pending approvals view
+CREATE VIEW pending_approvals AS
+SELECT 
+    uar.*,
+    u.first_name,
+    u.last_name,
+    u.email,
+    u.role as current_role,
+    c.name as company_name,
+    reviewer.first_name as reviewer_first_name,
+    reviewer.last_name as reviewer_last_name
+FROM user_approval_requests uar
+JOIN users u ON uar.user_id = u.id
+JOIN companies c ON uar.company_id = c.id
+LEFT JOIN users reviewer ON uar.reviewed_by = reviewer.id
+WHERE uar.status = 'pending';
+
+-- Face encoding expiration view
+CREATE VIEW face_encoding_expirations AS
+SELECT 
+    u.id as user_id,
+    u.first_name,
+    u.last_name,
+    u.email,
+    u.face_encoding_expires_at,
+    u.face_encoding_quality_score,
+    c.name as company_name,
+    CASE 
+        WHEN u.face_encoding_expires_at < NOW() THEN 'expired'
+        WHEN u.face_encoding_expires_at < NOW() + INTERVAL '7 days' THEN 'expiring_soon'
+        ELSE 'valid'
+    END as status
+FROM users u
+JOIN companies c ON u.company_id = c.id
+WHERE u.face_encoding_expires_at IS NOT NULL
+AND u.role IN ('user', 'admin');

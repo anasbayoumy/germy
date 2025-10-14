@@ -13,9 +13,6 @@ import { testConnection, closeConnection } from './config/database';
 
 // Import routes
 import attendanceRoutes from './routes/attendance.routes';
-import verificationRoutes from './routes/verification.routes';
-import analyticsRoutes from './routes/analytics.routes';
-import fraudRoutes from './routes/fraud.routes';
 
 // Load environment variables
 config();
@@ -68,7 +65,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get('/health', async (_req, res) => {
   try {
     const dbHealth = await testConnection();
     
@@ -96,9 +93,6 @@ app.get('/health', async (req, res) => {
 
 // API routes
 app.use('/api/attendance', attendanceRoutes);
-app.use('/api/verification', verificationRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/fraud', fraudRoutes);
 
 // Error handling middleware
 app.use(handleUploadError);
@@ -153,6 +147,6 @@ async function startServer() {
 export { app };
 
 // Only start server if not in test environment
-if (process.env.NODE_ENV !== 'test') {
+if (process.env['NODE_ENV'] !== 'test') {
   startServer();
 }

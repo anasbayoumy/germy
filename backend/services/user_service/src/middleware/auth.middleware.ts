@@ -80,7 +80,7 @@ export function requireRole(roles: string[]) {
 }
 
 export function requirePlatformAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole(['platform_super_admin'])(req, res, next);
+  requireRole(['platform_admin'])(req, res, next);
 }
 
 export function requireCompanySuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
@@ -88,15 +88,15 @@ export function requireCompanySuperAdmin(req: AuthenticatedRequest, res: Respons
 }
 
 export function requireCompanyAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole(['company_admin'])(req, res, next);
+  requireRole(['admin'])(req, res, next);
 }
 
 export function requireCompanyAdminOrHigher(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole(['company_super_admin', 'company_admin'])(req, res, next);
+  requireRole(['company_super_admin', 'admin'])(req, res, next);
 }
 
 export function requireEmployeeOrHigher(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole(['platform_super_admin', 'company_super_admin', 'company_admin', 'employee'])(req, res, next);
+  requireRole(['platform_admin', 'company_super_admin', 'admin', 'user'])(req, res, next);
 }
 
 // Middleware to check if user can access specific user data
@@ -113,7 +113,7 @@ export function requireUserAccess(req: AuthenticatedRequest, res: Response, next
   const targetUserId = req.params.id || req.params.userId;
 
   // Platform admins can access any user
-  if (role === 'platform_super_admin') {
+  if (role === 'platform_admin') {
     next();
     return;
   }
@@ -125,7 +125,7 @@ export function requireUserAccess(req: AuthenticatedRequest, res: Response, next
   }
 
   // Company admins and super admins can access users in their company
-  if (['company_super_admin', 'company_admin'].includes(role)) {
+  if (['company_super_admin', 'admin'].includes(role)) {
     // The service layer will handle company validation
     next();
     return;

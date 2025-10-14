@@ -1,19 +1,7 @@
 import { pgTable, uuid, varchar, text, decimal, integer, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// Platform Super Admins (You and your team)
-export const platformAdmins = pgTable('platform_admins', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
-  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-  firstName: varchar('first_name', { length: 100 }).notNull(),
-  lastName: varchar('last_name', { length: 100 }).notNull(),
-  role: varchar('role', { length: 50 }).notNull().default('platform_super_admin'),
-  isActive: boolean('is_active').notNull().default(true),
-  lastLogin: timestamp('last_login', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+// Note: Platform admins are now stored in the users table with role='platform_admin'
 
 // Subscription Plans (Platform Super Admin manages these)
 export const subscriptionPlans = pgTable('subscription_plans', {

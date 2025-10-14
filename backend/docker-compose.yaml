@@ -42,12 +42,12 @@ services:
   user-service:
     build: ./services/user_service
     ports:
-      - "3002:3002"
+      - "3003:3003"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
       - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - NODE_ENV=development
-      - PORT=3002
+      - PORT=3003
     depends_on:
       db:
         condition: service_healthy
@@ -58,19 +58,49 @@ services:
   attendance-service:
     build: ./services/attendance_service
     ports:
-      - "3003:3003"
+      - "3002:3002"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
       - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - NODE_ENV=development
-      - PORT=3003
+      - PORT=3002
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3003
+      - AI_SERVICE_URL=http://ai-service:3004
+    depends_on:
+      db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    volumes:
+      - ./services/attendance_service:/app
+      - /app/node_modules
+
+  ai-service:
+    build: ./services/ai_service
+    ports:
+      - "3004:3004"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
+      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
+      - NODE_ENV=development
+      - PORT=3004
       - GEMINI_API_KEY=your-gemini-api-key
-      - FACE_COMPARISON_THRESHOLD=70
-      - LIVENESS_THRESHOLD=80
-      - DEFAULT_GEOFENCE_RADIUS=350
+      - ARCFACE_ENABLED=true
       - FRAUD_DETECTION_ENABLED=true
+      - ML_ANALYTICS_ENABLED=false
+      - RISK_THRESHOLD_HIGH=80
+      - RISK_THRESHOLD_MEDIUM=60
+      - RISK_THRESHOLD_LOW=40
+      - MAX_BATCH_SIZE=10
+      - PROCESSING_TIMEOUT=30000
       - AUTH_SERVICE_URL=http://auth-service:3001
       - USER_SERVICE_URL=http://user-service:3002
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3003
     depends_on:
       db:
         condition: service_healthy
@@ -79,9 +109,10 @@ services:
       user-service:
         condition: service_started
     volumes:
-      - ./services/attendance_service:/app
+      - ./services/ai_service:/app
       - /app/node_modules
-      - ./services/attendance_service/uploads:/app/uploads
+      - ./services/ai_service/models:/app/models
+      - ./services/ai_service/logs:/app/logs
 
 volumes:
   postgres_data:
