@@ -1,6 +1,18 @@
 import { z } from 'zod';
 import { PasswordPolicyService } from '../utils/password-policy';
 
+// Custom email validation for admin/super admin roles
+const validateWorkEmail = (email: string) => {
+  const personalEmailDomains = [
+    'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com',
+    'aol.com', 'protonmail.com', 'yandex.com', 'mail.com', 'zoho.com',
+    'live.com', 'msn.com', 'comcast.net', 'verizon.net', 'att.net'
+  ];
+  
+  const domain = email.split('@')[1]?.toLowerCase();
+  return !personalEmailDomains.includes(domain);
+};
+
 export const loginSchema = z.object({
   body: z.object({
     email: z.string().email('Invalid email format'),
@@ -30,7 +42,11 @@ export const registerCompanySuperAdminSchema = z.object({
     companyDomain: z.string().min(2, 'Company domain must be at least 2 characters'),
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    email: z.string().email('Invalid email format'),
+    email: z.string()
+      .email('Invalid email format')
+      .refine(validateWorkEmail, {
+        message: 'Admin email must be a work email address (@workaddress.whatever), not personal email (@gmail, @outlook, etc.)',
+      }),
     password: z.string()
       .min(8, 'Password must be at least 8 characters')
       .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {
@@ -47,7 +63,11 @@ export const registerCompanyAdminSchema = z.object({
   body: z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    email: z.string().email('Invalid email format'),
+    email: z.string()
+      .email('Invalid email format')
+      .refine(validateWorkEmail, {
+        message: 'Admin email must be a work email address (@workaddress.whatever), not personal email (@gmail, @outlook, etc.)',
+      }),
     password: z.string()
       .min(8, 'Password must be at least 8 characters')
       .refine((password) => PasswordPolicyService.meetsMinimumRequirements(password), {

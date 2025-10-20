@@ -11,7 +11,7 @@ import { securityLoggingService } from '../services/security-logging.service';
 // General API rate limiting
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env.NODE_ENV === 'production' ? 100 : 1000, // 100 requests per 15 minutes in production
+  max: env.NODE_ENV === 'production' ? 100 : 10000, // 100 requests per 15 minutes in production, 10000 in dev (effectively disabled)
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',
@@ -19,6 +19,10 @@ export const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req: Request) => {
+    // Skip rate limiting in development
+    return env.NODE_ENV !== 'production';
+  },
   handler: async (req: Request, res: Response) => {
     // Log rate limit exceeded event
     await securityLoggingService.logRateLimitExceeded(req.ip || 'unknown', req.url, req.get('User-Agent'));
@@ -41,7 +45,7 @@ export const generalLimiter = rateLimit({
 // Authentication endpoints rate limiting (stricter)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env.NODE_ENV === 'production' ? 5 : 50, // 5 login attempts per 15 minutes in production
+  max: env.NODE_ENV === 'production' ? 5 : 1000, // 5 login attempts per 15 minutes in production, 1000 in dev (effectively disabled)
   message: {
     success: false,
     message: 'Too many authentication attempts from this IP, please try again later.',
@@ -50,6 +54,10 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful requests
+  skip: (req: Request) => {
+    // Skip rate limiting in development
+    return env.NODE_ENV !== 'production';
+  },
   handler: (req: Request, res: Response) => {
     logger.warn('Rate limit exceeded - Authentication', {
       ip: req.ip,
@@ -98,7 +106,7 @@ export const passwordResetLimiter = rateLimit({
 // Registration rate limiting
 export const registrationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: env.NODE_ENV === 'production' ? 3 : 10, // 3 registration attempts per hour in production
+  max: env.NODE_ENV === 'production' ? 3 : 1000, // 3 registration attempts per hour in production, 1000 in dev (effectively disabled)
   message: {
     success: false,
     message: 'Too many registration attempts from this IP, please try again later.',
@@ -106,6 +114,10 @@ export const registrationLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req: Request) => {
+    // Skip rate limiting in development
+    return env.NODE_ENV !== 'production';
+  },
   handler: (req: Request, res: Response) => {
     logger.warn('Rate limit exceeded - Registration', {
       ip: req.ip,
@@ -279,7 +291,7 @@ export const rateLimitConfig = {
     max: env.NODE_ENV === 'production' ? 3 : 10,
   },
   registration: {
-    windowMs: 60 * 60 * 1000,
+    windowMs: env.NODE_ENV === 'production' ? 60 * 60 * 1000 : 15 * 60 * 1000,
     max: env.NODE_ENV === 'production' ? 3 : 10,
   },
   platformAdmin: {

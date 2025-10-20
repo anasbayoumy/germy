@@ -85,22 +85,27 @@ services:
     ports:
       - "3004:3004"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
-      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - NODE_ENV=development
       - PORT=3004
-      - GEMINI_API_KEY=your-gemini-api-key
-      - ARCFACE_ENABLED=true
-      - FRAUD_DETECTION_ENABLED=true
-      - ML_ANALYTICS_ENABLED=false
-      - RISK_THRESHOLD_HIGH=80
-      - RISK_THRESHOLD_MEDIUM=60
-      - RISK_THRESHOLD_LOW=40
-      - MAX_BATCH_SIZE=10
-      - PROCESSING_TIMEOUT=30000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
+      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - AUTH_SERVICE_URL=http://auth-service:3001
-      - USER_SERVICE_URL=http://user-service:3002
-      - ATTENDANCE_SERVICE_URL=http://attendance-service:3003
+      - USER_SERVICE_URL=http://user-service:3003
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3002
+    depends_on:
+      db:
+        condition: service_healthy
+
+  platform-service:
+    build: ./services/platform_service
+    image: backend-platform-service
+    environment:
+      - NODE_ENV=development
+      - PLATFORM_SERVICE_PORT=3005
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3003
+      - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
     depends_on:
       db:
         condition: service_healthy
@@ -108,11 +113,11 @@ services:
         condition: service_started
       user-service:
         condition: service_started
+    ports:
+      - "3005:3005"
     volumes:
-      - ./services/ai_service:/app
+      - ./services/platform_service:/app
       - /app/node_modules
-      - ./services/ai_service/models:/app/models
-      - ./services/ai_service/logs:/app/logs
 
 volumes:
   postgres_data:

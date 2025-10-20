@@ -120,14 +120,14 @@ export class AuthService {
       // Generate JWT token
       const token = generateToken({
         userId: admin.id,
-        companyId: admin.companyId || 'platform', // Use companyId if available, otherwise 'platform'
+        companyId: admin.companyId!, // Use companyId if available, otherwise 'platform'
         role: 'platform_admin',
       });
 
       // Log the login
       await this.logAuditEvent({
         userId: admin.id,
-        companyId: admin.companyId || 'platform',
+        companyId: admin.companyId!,
         action: 'platform_admin_login',
         resourceType: 'user',
         resourceId: admin.id,
@@ -285,14 +285,14 @@ export class AuthService {
       // Generate JWT token
       const token = generateToken({
         userId: userData.id,
-        companyId: userData.companyId || 'platform',
+        companyId: userData.companyId!,
         role: userData.role,
       });
 
       // Log the login
       await this.logAuditEvent({
         userId: userData.id,
-        companyId: userData.companyId || 'platform',
+        companyId: userData.companyId!,
         action: `${targetRole}_login`,
         resourceType: 'user',
         resourceId: userData.id,
@@ -399,14 +399,14 @@ export class AuthService {
       // Generate JWT token
       const token = generateToken({
         userId: userData.id,
-        companyId: userData.companyId || 'platform',
+        companyId: userData.companyId!,
         role: userData.role,
       });
 
       // Log the login
       await this.logAuditEvent({
         userId: userData.id,
-        companyId: userData.companyId || 'platform',
+        companyId: userData.companyId!,
         action: 'login',
         resourceType: 'user',
         resourceId: userData.id,
@@ -476,7 +476,7 @@ export class AuthService {
       // Log the registration
       await this.logAuditEvent({
         userId: createdBy,
-        companyId: 'platform',
+        companyId: platformAdmin.companyId!,
         action: 'create_platform_admin',
         resourceType: 'user',
         resourceId: platformAdmin.id,
@@ -973,7 +973,7 @@ export class AuthService {
       // Log the password reset request
       await this.logAuditEvent({
         userId: userData.id,
-        companyId: userData.companyId || 'platform',
+        companyId: userData.companyId!,
         action: 'password_reset_requested',
         resourceType: 'user',
         resourceId: userData.id,

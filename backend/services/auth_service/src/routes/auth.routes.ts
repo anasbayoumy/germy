@@ -1,7 +1,7 @@
 import express from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
-import { authenticateToken, requirePlatformAdmin, requireCompanySuperAdmin, requireCompanyAdmin } from '../middleware/auth.middleware';
+import { authenticateToken, requirePlatformAdmin, requireCompanySuperAdmin, requireCompanyAdmin, requireAdminOrSuperAdmin, requireSuperAdminOrHigher } from '../middleware/auth.middleware';
 import { 
   authLimiter, 
   passwordResetLimiter, 
@@ -35,8 +35,8 @@ router.post('/login', authLimiter, validateRequest(loginSchema), authController.
 // Role-specific registration endpoints (with registration rate limiting)
 router.post('/platform/register', platformAdminLimiter, authenticateToken, requirePlatformAdmin, validateRequest(registerPlatformAdminSchema), authController.registerPlatformAdmin.bind(authController));
 router.post('/super_admin/register', registrationLimiter, validateRequest(registerCompanySuperAdminSchema), authController.registerCompanySuperAdmin.bind(authController));
-router.post('/admin/register', registrationLimiter, authenticateToken, requireCompanySuperAdmin, validateRequest(registerCompanyAdminSchema), authController.registerCompanyAdmin.bind(authController));
-router.post('/user/register', registrationLimiter, authenticateToken, requireCompanyAdmin, validateRequest(registerEmployeeSchema), authController.registerEmployee.bind(authController));
+router.post('/admin/register', registrationLimiter, authenticateToken, requireSuperAdminOrHigher, validateRequest(registerCompanyAdminSchema), authController.registerCompanyAdmin.bind(authController));
+router.post('/user/register', registrationLimiter, authenticateToken, requireAdminOrSuperAdmin, validateRequest(registerEmployeeSchema), authController.registerEmployee.bind(authController));
 
 // Legacy registration endpoint (for backward compatibility)
 router.post('/register', registrationLimiter, validateRequest(registerSchema), authController.register.bind(authController));
