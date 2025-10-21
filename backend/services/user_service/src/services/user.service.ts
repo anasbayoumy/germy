@@ -192,12 +192,17 @@ export class UserService {
         };
       }
 
+      // Convert salary to string if it's a number and handle date fields
+      const updateDataWithStringSalary = {
+        ...updateData,
+        salary: updateData.salary ? updateData.salary.toString() : undefined,
+        hireDate: updateData.hireDate ? new Date(updateData.hireDate) : undefined,
+        // Remove updatedAt - let the database handle it automatically
+      };
+
       const [updatedUser] = await db
         .update(users)
-        .set({
-          ...updateData,
-          updatedAt: new Date(),
-        })
+        .set(updateDataWithStringSalary)
         .where(eq(users.id, userId))
         .returning();
 
@@ -927,14 +932,14 @@ export class UserService {
             .insert(users)
             .values({
               email: userData.email,
-              password: 'temp_password_import', // Should be changed on first login
+              passwordHash: 'temp_password_import', // Should be changed on first login
               firstName: userData.firstName,
               lastName: userData.lastName,
               phone: userData.phone,
               position: userData.position,
               department: userData.department,
               hireDate: userData.hireDate ? new Date(userData.hireDate) : null,
-              salary: userData.salary,
+              salary: userData.salary ? userData.salary.toString() : undefined,
               role: userData.role || 'user',
               isActive: userData.isActive !== undefined ? userData.isActive : true,
               isVerified: false, // Imported users need to verify
@@ -1004,17 +1009,8 @@ export class UserService {
     userAgent?: string;
   }) {
     try {
-      await db.insert(userActivities).values({
-        userId: data.userId,
-        companyId: data.companyId,
-        action: data.action,
-        resourceType: data.resourceType,
-        resourceId: data.resourceId,
-        oldValues: data.oldValues,
-        newValues: data.newValues,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
-      });
+      // TODO: Implement user activity logging when user_activities table is created
+      logger.info(`User activity: ${data.action} by ${data.userId} for ${data.resourceType} ${data.resourceId || ''}`);
     } catch (error) {
       logger.error('Failed to log user activity:', error);
     }

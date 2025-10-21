@@ -1,446 +1,479 @@
-### Germy User Service - Comprehensive HTTP Tests
-### Test Environment: http://localhost:3002
+### Germy User Service - Complete HTTP Tests
+### This file contains comprehensive tests for all User Service endpoints
 
 ### Variables
-@baseUrl = http://localhost:3002
-@adminEmail = admin@company.com
-@userEmail = user@company.com
-@platformAdminEmail = platform@admin.com
-@password = TestPassword123!
-@companyId = 550e8400-e29b-41d4-a716-446655440000
-@userId = 550e8400-e29b-41d4-a716-446655440001
-@adminId = 550e8400-e29b-41d4-a716-446655440002
+@baseUrl = http://localhost:3003
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmYmYzZDUyYy0xNmI5LTQxMjYtYTQwNy05NGZlNjA0MWYwODkiLCJjb21wYW55SWQiOiIxZWJhMjEzNi1jMTY4LTQ1ZGMtYjA4OS0wMGRjZTdhOTc4MzQiLCJyb2xlIjoiY29tcGFueV9zdXBlcl9hZG1pbiIsImlhdCI6MTc2MTA1NjIzMiwiZXhwIjoxNzYxMTQyNjMyLCJhdWQiOiJnZXJteS1wbGF0Zm9ybSIsImlzcyI6Imdlcm15LWF1dGgtc2VydmljZSJ9.p4UPST-CwFDkwPYAzFksiTsAfp9GoHJAe-iIwdBYHjY
+@userId = fe4621c4-cdc4-4e8d-8550-d430e01aeb6e
+@companyId = 1eba2136-c168-45dc-b089-00dce7a97834
 
-### ===========================================
-### 1. HEALTH CHECK
-### ===========================================
+### ========================================
+### 🔐 AUTHENTICATION SETUP
+### ========================================
 
-GET {{baseUrl}}/health
+### Get Auth Token (Login)
+POST http://localhost:3001/api/auth/login
 Content-Type: application/json
-
-### ===========================================
-### 2. USER PROFILE MANAGEMENT
-### ===========================================
-
-### Get User Profile (Self)
-GET {{baseUrl}}/api/users/profile
-Authorization: Bearer {{userToken}}
-
-### Update User Profile (Self)
-PUT {{baseUrl}}/api/users/profile
-Content-Type: application/json
-Authorization: Bearer {{userToken}}
 
 {
-  "firstName": "John",
-  "lastName": "Doe",
-  "phone": "+1234567893",
-  "position": "Senior Software Developer",
-  "department": "Engineering",
-  "profilePhotoUrl": "https://example.com/profile.jpg"
+  "email": "admin@platform.com",
+  "password": "AdminPass123!"
 }
 
-### Get User Profile by ID (Admin)
-GET {{baseUrl}}/api/users/{{userId}}
-Authorization: Bearer {{adminToken}}
+### ========================================
+### 👥 USER MANAGEMENT
+### ========================================
 
-### Update User Profile by ID (Admin)
-PUT {{baseUrl}}/api/users/{{userId}}
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+### Get All Users (Basic)
+GET {{baseUrl}}/api/users?page=1&limit=20
+Authorization: Bearer {{authToken}}
 
-{
-  "firstName": "John",
-  "lastName": "Doe",
-  "phone": "+1234567893",
-  "position": "Senior Software Developer",
-  "department": "Engineering",
-  "salary": "75000.00",
-  "hireDate": "2024-01-15T00:00:00Z"
-}
-
-### ===========================================
-### 3. USER MANAGEMENT (ADMIN)
-### ===========================================
-
-### Get All Users (Admin)
-GET {{baseUrl}}/api/users?page=1&limit=10&search=john
-Authorization: Bearer {{adminToken}}
-
-### Get Users by Department
-GET {{baseUrl}}/api/users?department=Engineering&page=1&limit=10
-Authorization: Bearer {{adminToken}}
-
-### Get Users by Role
+### Get All Users with Role Filter
 GET {{baseUrl}}/api/users?role=user&page=1&limit=10
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{authToken}}
 
-### Get Users by Work Mode
-GET {{baseUrl}}/api/users?workMode=hybrid&page=1&limit=10
-Authorization: Bearer {{adminToken}}
+### Get All Users with Search
+GET {{baseUrl}}/api/users?search=john&page=1&limit=10
+Authorization: Bearer {{authToken}}
 
-### ===========================================
-### 4. TEAM MANAGEMENT
-### ===========================================
-
-### Create Team (Admin)
-POST {{baseUrl}}/api/teams
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "name": "Frontend Team",
-  "description": "Frontend development team",
-  "department": "Engineering",
-  "teamLeadId": "{{userId}}",
-  "memberIds": ["{{userId}}", "{{userId2}}"]
-}
-
-### Get All Teams (Admin)
-GET {{baseUrl}}/api/teams?page=1&limit=10
-Authorization: Bearer {{adminToken}}
-
-### Get Team by ID
-GET {{baseUrl}}/api/teams/{{teamId}}
-Authorization: Bearer {{adminToken}}
-
-### Update Team (Admin)
-PUT {{baseUrl}}/api/teams/{{teamId}}
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "name": "Frontend Development Team",
-  "description": "Frontend development and UI/UX team",
-  "teamLeadId": "{{userId}}"
-}
-
-### Add Team Members (Admin)
-POST {{baseUrl}}/api/teams/{{teamId}}/members
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "memberIds": ["{{userId3}}", "{{userId4}}"]
-}
-
-### Remove Team Members (Admin)
-DELETE {{baseUrl}}/api/teams/{{teamId}}/members
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "memberIds": ["{{userId3}}"]
-}
-
-### Delete Team (Admin)
-DELETE {{baseUrl}}/api/teams/{{teamId}}
-Authorization: Bearer {{adminToken}}
-
-### ===========================================
-### 5. DEPARTMENT MANAGEMENT
-### ===========================================
-
-### Create Department (Admin)
-POST {{baseUrl}}/api/departments
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "name": "Product Management",
-  "description": "Product strategy and roadmap",
-  "headId": "{{adminId}}",
-  "budget": "500000.00"
-}
-
-### Get All Departments (Admin)
-GET {{baseUrl}}/api/departments?page=1&limit=10
-Authorization: Bearer {{adminToken}}
-
-### Get Department by ID
-GET {{baseUrl}}/api/departments/{{departmentId}}
-Authorization: Bearer {{adminToken}}
-
-### Update Department (Admin)
-PUT {{baseUrl}}/api/departments/{{departmentId}}
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "name": "Product & Strategy",
-  "description": "Product strategy, roadmap, and business development",
-  "budget": "750000.00"
-}
-
-### Delete Department (Admin)
-DELETE {{baseUrl}}/api/departments/{{departmentId}}
-Authorization: Bearer {{adminToken}}
-
-### ===========================================
-### 6. WORK MODE MANAGEMENT
-### ===========================================
-
-### Get User Work Mode
-GET {{baseUrl}}/api/users/{{userId}}/work-mode
-Authorization: Bearer {{adminToken}}
-
-### Update User Work Mode (Admin)
-PUT {{baseUrl}}/api/users/{{userId}}/work-mode
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "workMode": "hybrid",
-  "hybridRemoteDays": 3,
-  "preferredRemoteDays": ["monday", "wednesday", "friday"],
-  "homeAddress": "456 Home Street, Remote City, RC 12345",
-  "homeLatitude": 37.7749,
-  "homeLongitude": -122.4194,
-  "homeGeofenceRadius": 100
-}
-
-### Get Work Mode Schedule
-GET {{baseUrl}}/api/users/{{userId}}/work-schedule?startDate=2024-01-01&endDate=2024-01-31
-Authorization: Bearer {{adminToken}}
-
-### Create Work Mode Schedule (Admin)
-POST {{baseUrl}}/api/users/{{userId}}/work-schedule
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "scheduleDate": "2024-01-15",
-  "workMode": "remote",
-  "notes": "Working from home due to weather"
-}
-
-### Update Work Mode Schedule (Admin)
-PUT {{baseUrl}}/api/users/{{userId}}/work-schedule/{{scheduleId}}
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "workMode": "onsite",
-  "notes": "Changed to onsite for important meeting"
-}
-
-### ===========================================
-### 7. USER ACTIVITY & ANALYTICS
-### ===========================================
-
-### Get User Activity Summary (Admin)
-GET {{baseUrl}}/api/users/{{userId}}/activity?startDate=2024-01-01&endDate=2024-01-31
-Authorization: Bearer {{adminToken}}
-
-### Get Company User Analytics (Admin)
-GET {{baseUrl}}/api/analytics/users?startDate=2024-01-01&endDate=2024-01-31&groupBy=department
-Authorization: Bearer {{adminToken}}
-
-### Get Work Mode Analytics (Admin)
-GET {{baseUrl}}/api/analytics/work-modes?startDate=2024-01-01&endDate=2024-01-31
-Authorization: Bearer {{adminToken}}
-
-### Get Department Analytics (Admin)
-GET {{baseUrl}}/api/analytics/departments?startDate=2024-01-01&endDate=2024-01-31
-Authorization: Bearer {{adminToken}}
-
-### ===========================================
-### 8. USER SEARCH & FILTERING
-### ===========================================
+### Get All Users with Active Filter
+GET {{baseUrl}}/api/users?isActive=true&page=1&limit=10
+Authorization: Bearer {{authToken}}
 
 ### Search Users by Name
-GET {{baseUrl}}/api/users/search?q=john&page=1&limit=10
-Authorization: Bearer {{adminToken}}
+GET {{baseUrl}}/api/users/search?q=john&limit=10
+Authorization: Bearer {{authToken}}
 
-### Filter Users by Multiple Criteria
-GET {{baseUrl}}/api/users?department=Engineering&workMode=hybrid&role=user&page=1&limit=10
-Authorization: Bearer {{adminToken}}
+### Search Users by Email
+GET {{baseUrl}}/api/users/search?q=admin@testcorp.com&limit=10
+Authorization: Bearer {{authToken}}
 
-### Get Users with Expiring Face Encodings
-GET {{baseUrl}}/api/users/expiring-face-encodings?days=7&page=1&limit=10
-Authorization: Bearer {{adminToken}}
+### Get User by ID
+GET {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
 
-### ===========================================
-### 9. BULK OPERATIONS
-### ===========================================
-
-### Bulk Update User Work Modes (Admin)
-PUT {{baseUrl}}/api/users/bulk/work-mode
+### Update User (PUT) - Full Update
+PUT {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
-Authorization: Bearer {{adminToken}}
 
 {
-  "userIds": ["{{userId1}}", "{{userId2}}", "{{userId3}}"],
-  "workMode": "remote",
-  "reason": "Company-wide remote work policy"
+  "firstName": "John Updated",
+  "lastName": "Doe Updated",
+  "phone": "+1234567890",
+  "position": "Senior Developer",
+  "department": "Engineering",
+  "hireDate": "2024-01-15T00:00:00.000Z",
+  "salary": 75000,
+  "profilePhotoUrl": "https://example.com/photo.jpg",
+  "isActive": true
 }
 
-### Bulk Update User Departments (Admin)
-PUT {{baseUrl}}/api/users/bulk/department
+### Update User (PATCH) - Partial Update
+PATCH {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
-Authorization: Bearer {{adminToken}}
 
 {
-  "userIds": ["{{userId1}}", "{{userId2}}"],
-  "department": "Product Management",
-  "reason": "Department restructuring"
+  "firstName": "John Patched",
+  "position": "Lead Developer"
 }
 
-### Bulk Deactivate Users (Admin)
-PUT {{baseUrl}}/api/users/bulk/deactivate
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+### Deactivate User
+PATCH {{baseUrl}}/api/users/{{userId}}/deactivate
+Authorization: Bearer {{authToken}}
 
-{
-  "userIds": ["{{userId1}}", "{{userId2}}"],
-  "reason": "End of contract"
-}
-
-### ===========================================
-### 10. USER EXPORT & REPORTING
-### ===========================================
-
-### Export Users to CSV (Admin)
-GET {{baseUrl}}/api/users/export/csv?department=Engineering&format=csv
-Authorization: Bearer {{adminToken}}
-
-### Export Users to Excel (Admin)
-GET {{baseUrl}}/api/users/export/excel?workMode=hybrid&format=xlsx
-Authorization: Bearer {{adminToken}}
-
-### Generate User Report (Admin)
-POST {{baseUrl}}/api/reports/users
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "reportType": "department_summary",
-  "startDate": "2024-01-01",
-  "endDate": "2024-01-31",
-  "filters": {
-    "department": "Engineering",
-    "workMode": "hybrid"
-  }
-}
-
-### ===========================================
-### 11. USER NOTIFICATIONS
-### ===========================================
-
-### Get User Notifications
-GET {{baseUrl}}/api/users/notifications?page=1&limit=10&unreadOnly=true
-Authorization: Bearer {{userToken}}
-
-### Mark Notification as Read
-PUT {{baseUrl}}/api/users/notifications/{{notificationId}}/read
-Authorization: Bearer {{userToken}}
-
-### Mark All Notifications as Read
-PUT {{baseUrl}}/api/users/notifications/read-all
-Authorization: Bearer {{userToken}}
-
-### ===========================================
-### 12. USER PREFERENCES
-### ===========================================
+### ========================================
+### ⚙️ USER PREFERENCES
+### ========================================
 
 ### Get User Preferences
-GET {{baseUrl}}/api/users/preferences
-Authorization: Bearer {{userToken}}
+GET {{baseUrl}}/api/users/{{userId}}/preferences
+Authorization: Bearer {{authToken}}
 
 ### Update User Preferences
-PUT {{baseUrl}}/api/users/preferences
+PUT {{baseUrl}}/api/users/{{userId}}/preferences
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
-Authorization: Bearer {{userToken}}
 
 {
+  "theme": "dark",
+  "language": "en",
+  "timezone": "America/New_York",
+  "dateFormat": "MM/DD/YYYY",
+  "timeFormat": "12h",
   "notifications": {
     "email": true,
-    "push": true,
-    "sms": false
+    "push": false,
+    "sms": true
   },
   "privacy": {
-    "profileVisibility": "company",
-    "showOnlineStatus": true
-  },
-  "workMode": {
-    "defaultWorkMode": "hybrid",
-    "preferredRemoteDays": ["monday", "wednesday", "friday"]
+    "profileVisible": true,
+    "activityVisible": false
   }
 }
 
-### ===========================================
-### 13. ERROR SCENARIOS
-### ===========================================
+### ========================================
+### 📊 USER ACTIVITIES
+### ========================================
 
-### Unauthorized Access (No Token)
-GET {{baseUrl}}/api/users/profile
+### Get User Activities
+GET {{baseUrl}}/api/users/{{userId}}/activities?page=1&limit=20
+Authorization: Bearer {{authToken}}
 
-### Invalid Token
-GET {{baseUrl}}/api/users/profile
-Authorization: Bearer invalid_token
+### ========================================
+### 🔧 USER SETTINGS
+### ========================================
 
-### User Accessing Admin Endpoints
-GET {{baseUrl}}/api/users?page=1&limit=10
-Authorization: Bearer {{userToken}}
+### Get User Settings
+GET {{baseUrl}}/api/users/{{userId}}/settings
+Authorization: Bearer {{authToken}}
 
-### Admin Accessing Platform Admin Endpoints
-GET {{baseUrl}}/api/platform/users
-Authorization: Bearer {{adminToken}}
-
-### Invalid User ID
-GET {{baseUrl}}/api/users/invalid-uuid
-Authorization: Bearer {{adminToken}}
-
-### Missing Required Fields
-PUT {{baseUrl}}/api/users/{{userId}}
+### Update User Settings
+PUT {{baseUrl}}/api/users/{{userId}}/settings
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
-Authorization: Bearer {{adminToken}}
 
 {
-  "firstName": "John"
-  // Missing required fields
+  "workHoursStart": "09:00",
+  "workHoursEnd": "17:00",
+  "workDays": [1, 2, 3, 4, 5],
+  "breakDuration": 60,
+  "overtimeEnabled": true,
+  "remoteWorkEnabled": true,
+  "attendanceReminders": {
+    "clockIn": true,
+    "clockOut": true,
+    "breakStart": false
+  }
 }
 
-### ===========================================
-### 14. ROLE-BASED ACCESS TESTS
-### ===========================================
+### ========================================
+### 📈 USER ANALYTICS
+### ========================================
 
-### User (Self) - Can access own profile
-GET {{baseUrl}}/api/users/profile
-Authorization: Bearer {{userToken}}
+### Get User Statistics
+GET {{baseUrl}}/api/users/{{userId}}/statistics
+Authorization: Bearer {{authToken}}
 
-### User (Self) - Cannot access other users
-GET {{baseUrl}}/api/users/{{adminId}}
-Authorization: Bearer {{userToken}}
+### Get User Activity Summary (30 days)
+GET {{baseUrl}}/api/users/{{userId}}/activity-summary?days=30
+Authorization: Bearer {{authToken}}
 
-### Admin - Can access company users
-GET {{baseUrl}}/api/users?page=1&limit=10
-Authorization: Bearer {{adminToken}}
+### Get User Activity Summary (7 days)
+GET {{baseUrl}}/api/users/{{userId}}/activity-summary?days=7
+Authorization: Bearer {{authToken}}
 
-### Admin - Cannot access other company users
-GET {{baseUrl}}/api/users?companyId=other-company-id
-Authorization: Bearer {{adminToken}}
+### Get Company User Analytics
+GET {{baseUrl}}/api/users/analytics/company/{{companyId}}
+Authorization: Bearer {{authToken}}
 
-### Super Admin - Can access all company users
-GET {{baseUrl}}/api/users?page=1&limit=10
-Authorization: Bearer {{superAdminToken}}
+### ========================================
+### 📦 BULK OPERATIONS
+### ========================================
 
-### Platform Admin - Can access all users
-GET {{baseUrl}}/api/users?page=1&limit=10
-Authorization: Bearer {{platformAdminToken}}
+### Bulk Update Users
+PUT {{baseUrl}}/api/users/bulk/update
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
 
-### ===========================================
-### 15. PERFORMANCE TESTS
-### ===========================================
+{
+  "userIds": ["{{userId}}"],
+  "updateData": {
+    "department": "Updated Department",
+    "position": "Updated Position",
+    "isActive": true
+  }
+}
 
-### Large Dataset Query
+### Export Users
+GET {{baseUrl}}/api/users/export/company/{{companyId}}
+Authorization: Bearer {{authToken}}
+
+### Import Users
+POST {{baseUrl}}/api/users/import
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "usersData": [
+    {
+      "email": "newuser1@testcorp.com",
+      "firstName": "New",
+      "lastName": "User1",
+      "phone": "+1234567890",
+      "position": "Developer",
+      "department": "Engineering",
+      "hireDate": "2024-01-15T00:00:00.000Z",
+      "salary": 60000,
+      "role": "user",
+      "isActive": true
+    },
+    {
+      "email": "newuser2@testcorp.com",
+      "firstName": "New",
+      "lastName": "User2",
+      "phone": "+1234567891",
+      "position": "Designer",
+      "department": "Design",
+      "hireDate": "2024-01-20T00:00:00.000Z",
+      "salary": 55000,
+      "role": "user",
+      "isActive": true
+    }
+  ]
+}
+
+### ========================================
+### 🔍 ERROR TESTING
+### ========================================
+
+### Get User with Invalid ID
+GET {{baseUrl}}/api/users/invalid-uuid
+Authorization: Bearer {{authToken}}
+
+### Update User with Invalid Data
+PUT {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "phone": "invalid-phone",
+  "salary": -1000
+}
+
+### Access User Without Permission (Invalid Token)
+GET {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer invalid-token
+
+### Access User Without Token
+GET {{baseUrl}}/api/users/{{userId}}
+
+### Update User with Missing Required Fields
+PUT {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "lastName": ""
+}
+
+### Bulk Update with Invalid User IDs
+PUT {{baseUrl}}/api/users/bulk/update
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "userIds": ["invalid-uuid"],
+  "updateData": {
+    "department": "Updated Department"
+  }
+}
+
+### Import Users with Invalid Data
+POST {{baseUrl}}/api/users/import
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "usersData": [
+    {
+      "email": "invalid-email",
+      "firstName": "",
+      "lastName": "",
+      "role": "invalid-role"
+    }
+  ]
+}
+
+### ========================================
+### 🏥 HEALTH CHECK
+### ========================================
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ========================================
+### 📊 PERFORMANCE TESTING
+### ========================================
+
+### Get Users with Large Limit
 GET {{baseUrl}}/api/users?page=1&limit=100
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{authToken}}
 
-### Complex Filter Query
-GET {{baseUrl}}/api/users?department=Engineering&workMode=hybrid&role=user&search=john&page=1&limit=50
-Authorization: Bearer {{adminToken}}
+### Search with Complex Query
+GET {{baseUrl}}/api/users/search?q=admin@testcorp.com&limit=50
+Authorization: Bearer {{authToken}}
 
-### Analytics Query with Date Range
-GET {{baseUrl}}/api/analytics/users?startDate=2023-01-01&endDate=2024-12-31&groupBy=month
-Authorization: Bearer {{adminToken}}
+### Get User Activities with Large Limit
+GET {{baseUrl}}/api/users/{{userId}}/activities?page=1&limit=100
+Authorization: Bearer {{authToken}}
+
+### ========================================
+### 🔐 ROLE-BASED TESTING
+### ========================================
+
+### Test as Regular User (if you have a user token)
+# GET {{baseUrl}}/api/users
+# Authorization: Bearer {{userToken}}
+
+### Test as Company Admin
+# GET {{baseUrl}}/api/users
+# Authorization: Bearer {{adminToken}}
+
+### Test as Platform Admin
+# GET {{baseUrl}}/api/users
+# Authorization: Bearer {{platformAdminToken}}
+
+### ========================================
+### 📋 COMPREHENSIVE TEST SCENARIOS
+### ========================================
+
+### Scenario 1: Complete User Lifecycle
+# 1. Get all users
+GET {{baseUrl}}/api/users?page=1&limit=20
+Authorization: Bearer {{authToken}}
+
+# 2. Get specific user
+GET {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
+
+# 3. Update user
+PUT {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "John Lifecycle",
+  "lastName": "Test",
+  "position": "Test Developer"
+}
+
+# 4. Get user preferences
+GET {{baseUrl}}/api/users/{{userId}}/preferences
+Authorization: Bearer {{authToken}}
+
+# 5. Update user preferences
+PUT {{baseUrl}}/api/users/{{userId}}/preferences
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "theme": "light",
+  "language": "en",
+  "timezone": "UTC"
+}
+
+# 6. Get user settings
+GET {{baseUrl}}/api/users/{{userId}}/settings
+Authorization: Bearer {{authToken}}
+
+# 7. Update user settings
+PUT {{baseUrl}}/api/users/{{userId}}/settings
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "workHoursStart": "08:00",
+  "workHoursEnd": "16:00",
+  "workDays": [1, 2, 3, 4, 5]
+}
+
+# 8. Get user statistics
+GET {{baseUrl}}/api/users/{{userId}}/statistics
+Authorization: Bearer {{authToken}}
+
+# 9. Get user activities
+GET {{baseUrl}}/api/users/{{userId}}/activities?page=1&limit=10
+Authorization: Bearer {{authToken}}
+
+### Scenario 2: Bulk Operations
+# 1. Import multiple users
+POST {{baseUrl}}/api/users/import
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "usersData": [
+    {
+      "email": "bulkuser1@testcorp.com",
+      "firstName": "Bulk",
+      "lastName": "User1",
+      "role": "user",
+      "isActive": true
+    },
+    {
+      "email": "bulkuser2@testcorp.com",
+      "firstName": "Bulk",
+      "lastName": "User2",
+      "role": "user",
+      "isActive": true
+    }
+  ]
+}
+
+# 2. Bulk update users
+PUT {{baseUrl}}/api/users/bulk/update
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "userIds": ["{{userId}}"],
+  "updateData": {
+    "department": "Bulk Updated Department"
+  }
+}
+
+# 3. Export users
+GET {{baseUrl}}/api/users/export/company/{{companyId}}
+Authorization: Bearer {{authToken}}
+
+### Scenario 3: Error Handling
+# 1. Test invalid user ID
+GET {{baseUrl}}/api/users/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{authToken}}
+
+# 2. Test invalid data
+PUT {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "phone": "invalid",
+  "salary": -1000
+}
+
+# 3. Test unauthorized access
+GET {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer invalid-token
+
+# 4. Test missing authentication
+GET {{baseUrl}}/api/users/{{userId}}
+
+### ========================================
+### 🎯 SUCCESS CRITERIA
+### ========================================
+
+### All tests should return appropriate status codes:
+# - 200 OK: Successful GET requests
+# - 201 Created: Successful POST requests  
+# - 200 OK: Successful PUT/PATCH requests
+# - 400 Bad Request: Invalid data or validation errors
+# - 401 Unauthorized: Missing or invalid authentication
+# - 403 Forbidden: Insufficient permissions
+# - 404 Not Found: Resource not found
+# - 500 Internal Server Error: Server errors
+
+### Response times should be:
+# - Simple queries: < 500ms
+# - Complex analytics: < 2000ms
+# - Bulk operations: < 5000ms
+
+### All responses should include:
+# - Proper Content-Type: application/json
+# - Success/error indicators
+# - Appropriate error messages
+# - Data validation feedback

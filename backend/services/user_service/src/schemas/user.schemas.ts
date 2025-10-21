@@ -38,7 +38,7 @@ export const userSchemas = {
     body: z.object({
       firstName: z.string().min(1, 'First name is required').max(100).optional(),
       lastName: z.string().min(1, 'Last name is required').max(100).optional(),
-      phone: z.string().regex(/^[\+]?[1-9][\d]{0,15}$/, 'Invalid phone number format').optional(),
+      phone: z.string().regex(/^[\+]?[0-9][\d]{0,15}$/, 'Invalid phone number format').optional(),
       position: z.string().max(100).optional(),
       department: z.string().max(100).optional(),
       hireDate: z.string().datetime().optional(),

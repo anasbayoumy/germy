@@ -63,12 +63,18 @@ app.use(handleUploadError);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Test database connection on startup
+import { testConnection } from './config/database';
+
 // Start server
 const PORT = env.PORT;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`User Service running on port ${PORT}`);
   logger.info(`Environment: ${env.NODE_ENV}`);
   logger.info(`Health check: http://localhost:${PORT}/health`);
+  
+  // Test database connection
+  await testConnection();
 });
 
 export default app;

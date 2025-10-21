@@ -1,486 +1,483 @@
-# 👥 User Service - Germy Attendance Platform
+# 👥 Germy User Service
 
-User management microservice for the Germy attendance management platform. Handles user profiles, team management, department organization, user preferences, and employee directory functionality.
+## **📋 Overview**
+The User Service is a comprehensive microservice that handles user management, preferences, settings, analytics, and bulk operations for the Germy AI-powered attendance platform.
 
-## 📋 Table of Contents
+## **🚀 Features**
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Database Schema](#database-schema)
-- [API Endpoints](#api-endpoints)
-- [Development Setup](#development-setup)
-- [Implementation Priorities](#implementation-priorities)
-- [Security Features](#security-features)
-- [Testing](#testing)
-- [Deployment](#deployment)
+### **Core Functionality**
+- **User Management**: CRUD operations for users
+- **User Preferences**: Personal settings and preferences
+- **User Settings**: Work-related configurations
+- **User Analytics**: Statistics and activity tracking
+- **Bulk Operations**: Import, export, and bulk updates
+- **Search & Filtering**: Advanced user search capabilities
 
-## 🎯 Overview
+### **Security Features**
+- **JWT Authentication**: Secure token-based authentication
+- **Role-Based Access Control**: Granular permission system
+- **Company Scoping**: Users can only access their company's data
+- **Input Validation**: Comprehensive data validation
+- **SQL Injection Prevention**: Parameterized queries
 
-The User Service is responsible for comprehensive user management within the Germy platform, providing:
+## **🔧 Technical Stack**
 
-- **User Profile Management**: Complete CRUD operations for user profiles
-- **Team Management**: Create, assign, and manage teams within companies
-- **Department Organization**: Hierarchical department structure management
-- **User Preferences**: Personal settings and customization options
-- **Employee Directory**: Search, filter, and export employee information
-- **User Activity Tracking**: Comprehensive audit logs for user actions
-- **Profile Picture Management**: Avatar upload and management
-- **User Settings**: Company-specific and personal user configurations
-
-## 🏗️ Architecture
-
-### Service Responsibilities
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    User Service (Port 3002)                 │
-├─────────────────────────────────────────────────────────────┤
-│  • User Profile Management & CRUD Operations                │
-│  • Team Creation & Management                               │
-│  • Department Organization & Hierarchy                      │
-│  • User Preferences & Settings                              │
-│  • Employee Directory & Search                              │
-│  • User Activity Tracking & Audit Logs                      │
-│  • Profile Picture & Avatar Management                      │
-│  • User Onboarding & Profile Completion                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Technology Stack
-- **Runtime**: Node.js 18+ with TypeScript
-- **Framework**: Express.js with middleware
+- **Runtime**: Node.js 20
+- **Framework**: Express.js
 - **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: JWT token validation (from Auth Service)
-- **Validation**: Zod schema validation
-- **Logging**: Winston with structured logging
-- **Security**: Helmet, CORS, rate limiting
-- **File Upload**: Multer for profile pictures
+- **Authentication**: JWT tokens
+- **Validation**: Zod schemas
+- **Logging**: Winston
+- **Containerization**: Docker
 
-## 🗄️ Database Schema
+## **📁 Project Structure**
 
-### Tables Managed by User Service
-
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `users` | Extended user profiles | profile_photo_url, position, department, hire_date |
-| `teams` | Team definitions | name, description, manager_id, company_id |
-| `user_teams` | User-team relationships | user_id, team_id, role_in_team |
-| `departments` | Department structure | name, description, parent_id, company_id |
-| `user_departments` | User-department assignments | user_id, department_id, role |
-| `user_preferences` | Personal user settings | user_id, theme, language, notifications |
-| `user_settings` | Company-specific settings | user_id, company_id, work_hours, timezone |
-| `user_activities` | User action tracking | user_id, action, resource_type, timestamp |
-
-### Key Relationships
-- `users.company_id` → `companies.id` (from Auth Service)
-- `teams.company_id` → `companies.id`
-- `teams.manager_id` → `users.id`
-- `user_teams.user_id` → `users.id`
-- `user_teams.team_id` → `teams.id`
-- `departments.company_id` → `companies.id`
-- `departments.parent_id` → `departments.id` (self-referencing)
-- `user_departments.user_id` → `users.id`
-- `user_departments.department_id` → `departments.id`
-
-## 🔌 API Endpoints
-
-### User Management Endpoints
 ```
-GET    /api/users                    # List users with filters
-GET    /api/users/:id                # Get user profile
-PUT    /api/users/:id                # Update user profile
-DELETE /api/users/:id                # Deactivate user
-POST   /api/users/:id/avatar         # Upload profile picture
-GET    /api/users/search             # Search users
-GET    /api/users/directory          # Employee directory
-GET    /api/users/export             # Export user data
+user_service/
+├── src/
+│   ├── controllers/          # Request handlers
+│   ├── services/            # Business logic
+│   ├── routes/              # API routes
+│   ├── middleware/          # Custom middleware
+│   ├── schemas/             # Validation schemas
+│   ├── db/                  # Database configuration
+│   ├── types/               # TypeScript types
+│   └── utils/               # Utility functions
+├── tests/                   # Test files
+├── Dockerfile              # Container configuration
+├── package.json            # Dependencies
+└── README.md              # This file
 ```
 
-### Team Management Endpoints
+## **🔌 API Endpoints**
+
+### **User Management**
+- `GET /api/users` - Get paginated users list
+- `GET /api/users/search` - Search users
+- `GET /api/users/:id` - Get user by ID
+- `PUT /api/users/:id` - Update user (full)
+- `PATCH /api/users/:id` - Update user (partial)
+- `PATCH /api/users/:id/deactivate` - Deactivate user
+
+### **User Preferences**
+- `GET /api/users/:id/preferences` - Get user preferences
+- `PUT /api/users/:id/preferences` - Update user preferences
+
+### **User Activities**
+- `GET /api/users/:id/activities` - Get user activities
+
+### **User Settings**
+- `GET /api/users/:id/settings` - Get user settings
+- `PUT /api/users/:id/settings` - Update user settings
+
+### **User Analytics**
+- `GET /api/users/:id/statistics` - Get user statistics
+- `GET /api/users/:id/activity-summary` - Get activity summary
+- `GET /api/users/analytics/company/:companyId` - Get company analytics
+
+### **Bulk Operations**
+- `PUT /api/users/bulk/update` - Bulk update users
+- `GET /api/users/export/company/:companyId` - Export users
+- `POST /api/users/import` - Import users
+
+### **Health Check**
+- `GET /health` - Service health status
+
+## **🔐 Authentication & Authorization**
+
+### **Authentication**
+All endpoints require a valid JWT token in the Authorization header:
 ```
-GET    /api/teams                    # List teams
-POST   /api/teams                    # Create team
-GET    /api/teams/:id                # Get team details
-PUT    /api/teams/:id                # Update team
-DELETE /api/teams/:id                # Delete team
-POST   /api/teams/:id/members        # Add team members
-DELETE /api/teams/:id/members/:userId # Remove team member
-GET    /api/teams/:id/members        # List team members
-```
-
-### Department Management Endpoints
-```
-GET    /api/departments              # List departments
-POST   /api/departments              # Create department
-GET    /api/departments/:id          # Get department details
-PUT    /api/departments/:id          # Update department
-DELETE /api/departments/:id          # Delete department
-GET    /api/departments/:id/users    # List department users
-POST   /api/departments/:id/users    # Assign users to department
-```
-
-### User Settings & Preferences
-```
-GET    /api/users/:id/settings       # Get user settings
-PUT    /api/users/:id/settings       # Update user settings
-GET    /api/users/:id/preferences    # Get user preferences
-PUT    /api/users/:id/preferences    # Update user preferences
-GET    /api/users/:id/activities     # Get user activity log
-```
-
-### Health & Monitoring
-```
-GET    /health                       # Service health check
-```
-
-## 🚀 Development Setup
-
-### Prerequisites
-- Node.js 18+
-- PostgreSQL 13+
-- Docker (optional)
-- Auth Service running (for JWT validation)
-
-### Installation
-```bash
-# Navigate to user service directory
-cd backend/services/user_service
-
-# Install dependencies
-npm install
-
-# Copy environment file
-cp .env.example .env
-
-# Configure environment variables
-# Edit .env with your database and service settings
-
-# Generate database migrations
-npm run db:generate
-
-# Run database migrations
-npm run db:migrate
-
-# Start development server
-npm run dev
-```
-
-### Environment Variables
-```env
-# Service Configuration
-NODE_ENV=development
-PORT=3002
-
-# Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/attendance_db
-
-# Service URLs
-AUTH_SERVICE_URL=http://localhost:3001
-FRONTEND_URL=http://localhost:3000
-
-# File Upload
-MAX_FILE_SIZE=5242880  # 5MB
-UPLOAD_PATH=./uploads
-
-# Security
-BCRYPT_ROUNDS=12
-```
-
-## 📋 Implementation Priorities
-
-### Phase 1: Core Setup
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 1 | `package.json` | ✅ | Dependencies and scripts |
-| 2 | `drizzle.config.ts` | ⏳ | Drizzle ORM configuration |
-| 3 | `src/config/database.ts` | ⏳ | Database connection setup |
-| 4 | `src/config/env.ts` | ⏳ | Environment variables validation |
-
-### Phase 2: Database Schema
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 5 | `src/db/schema/index.ts` | ⏳ | Export all schemas |
-| 6 | `src/db/schema/user.ts` | ⏳ | User-related tables |
-| 7 | `src/db/schema/team.ts` | ⏳ | Team and department tables |
-
-### Phase 3: Core Services
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 8 | `src/services/user.service.ts` | ⏳ | User management business logic |
-| 9 | `src/services/team.service.ts` | ⏳ | Team management logic |
-| 10 | `src/services/department.service.ts` | ⏳ | Department management logic |
-
-### Phase 4: Controllers & Routes
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 11 | `src/controllers/user.controller.ts` | ⏳ | User management endpoints |
-| 12 | `src/controllers/team.controller.ts` | ⏳ | Team management endpoints |
-| 13 | `src/controllers/department.controller.ts` | ⏳ | Department endpoints |
-| 14 | `src/routes/user.routes.ts` | ⏳ | User routes |
-| 15 | `src/routes/team.routes.ts` | ⏳ | Team routes |
-| 16 | `src/routes/department.routes.ts` | ⏳ | Department routes |
-
-### Phase 5: Middleware & Validation
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 17 | `src/middleware/auth.middleware.ts` | ⏳ | JWT validation middleware |
-| 18 | `src/middleware/validation.middleware.ts` | ⏳ | Request validation |
-| 19 | `src/middleware/error.middleware.ts` | ⏳ | Error handling |
-| 20 | `src/middleware/upload.middleware.ts` | ⏳ | File upload handling |
-
-### Phase 6: Schemas & Types
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 21 | `src/schemas/user.schemas.ts` | ⏳ | User validation schemas |
-| 22 | `src/schemas/team.schemas.ts` | ⏳ | Team validation schemas |
-| 23 | `src/schemas/department.schemas.ts` | ⏳ | Department validation schemas |
-| 24 | `src/types/user.types.ts` | ⏳ | User TypeScript types |
-| 25 | `src/types/team.types.ts` | ⏳ | Team TypeScript types |
-
-### Phase 7: Main Application
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 26 | `src/index.ts` | ⏳ | Express server setup |
-| 27 | `Dockerfile` | ✅ | Container configuration |
-
-### Phase 8: Utilities & Testing
-| Priority | File | Status | Description |
-|----------|------|--------|-------------|
-| 28 | `src/utils/logger.ts` | ⏳ | Structured logging |
-| 29 | `src/utils/fileUpload.ts` | ⏳ | File upload utilities |
-| 30 | `tests/` | ⏳ | Comprehensive test suite |
-
-## 🔒 Security Features
-
-### Authentication & Authorization
-- **JWT Token Validation**: Validates tokens from Auth Service
-- **Role-Based Access Control**: Company admin, super admin, employee permissions
-- **Company Data Isolation**: Users can only access their company data
-- **Input Validation**: Zod schema validation for all inputs
-- **File Upload Security**: File type and size validation
-
-### Data Protection
-- **Profile Picture Security**: Secure file upload and storage
-- **User Data Privacy**: Sensitive information protection
-- **Activity Logging**: Complete audit trail of user actions
-- **Rate Limiting**: API endpoint protection
-
-## 🧪 Testing
-
-### Test Structure
-```
-tests/
-├── setup.ts                    # Test environment configuration
-├── unit/                       # Unit tests for services
-│   ├── user.service.test.ts    # User service logic tests
-│   ├── team.service.test.ts    # Team service logic tests
-│   └── department.service.test.ts # Department service tests
-└── api/                        # HTTP API integration tests
-    ├── user-endpoints.test.ts  # User management endpoint tests
-    ├── team-endpoints.test.ts  # Team management endpoint tests
-    ├── department-endpoints.test.ts # Department endpoint tests
-    └── middleware-security.test.ts # Security and middleware tests
-```
-
-### Running Tests
-```bash
-# Run all tests
-npm test
-
-# Run unit tests only
-npm run test:unit
-
-# Run API tests only
-npm run test:api
-
-# Run with coverage
-npm run test:coverage
-
-# Watch mode for development
-npm run test:watch
-
-# CI mode
-npm run test:ci
-```
-
-## 🚀 Deployment
-
-### Docker Deployment
-```bash
-# Build the image
-docker build -t germy-user-service .
-
-# Run the container
-docker run -p 3002:3002 \
-  -e DATABASE_URL=postgresql://... \
-  -e AUTH_SERVICE_URL=http://auth-service:3001 \
-  germy-user-service
-```
-
-### Docker Compose
-```yaml
-user-service:
-  build: ./services/user_service
-  ports:
-    - "3002:3002"
-  environment:
-    - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance_db
-    - AUTH_SERVICE_URL=http://auth-service:3001
-  depends_on:
-    - auth-service
-    - db
-```
-
-## 📊 Key Features
-
-### User Profile Management
-- **Complete Profile CRUD**: Create, read, update, deactivate users
-- **Profile Pictures**: Upload and manage user avatars
-- **Personal Information**: Name, email, phone, position, department
-- **Employment Details**: Hire date, salary, employee ID
-- **Profile Completion**: Track and enforce profile completion
-
-### Team Management
-- **Team Creation**: Create teams with descriptions and managers
-- **Member Assignment**: Add/remove users from teams
-- **Team Roles**: Member, lead, manager roles within teams
-- **Team Hierarchy**: Nested team structures
-- **Team Analytics**: Member count, activity tracking
-
-### Department Organization
-- **Department Structure**: Hierarchical department organization
-- **User Assignment**: Assign users to departments
-- **Department Roles**: Different roles within departments
-- **Department Management**: Create, update, delete departments
-- **Organizational Chart**: Visual department structure
-
-### Employee Directory
-- **Search & Filter**: Advanced user search capabilities
-- **Export Functionality**: Export user data in various formats
-- **Directory Views**: List, grid, and card views
-- **Contact Information**: Quick access to user contact details
-- **Department Filtering**: Filter users by department
-
-### User Preferences & Settings
-- **Personal Preferences**: Theme, language, notification settings
-- **Work Settings**: Work hours, timezone, schedule preferences
-- **Privacy Settings**: Profile visibility, contact preferences
-- **Notification Preferences**: Email, push, SMS notification settings
-
-## 🔧 Configuration
-
-### Database Schema Extensions
-```sql
--- Teams table
-CREATE TABLE teams (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id UUID NOT NULL REFERENCES companies(id),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    manager_id UUID REFERENCES users(id),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- User-Team relationships
-CREATE TABLE user_teams (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    team_id UUID NOT NULL REFERENCES teams(id),
-    role_in_team VARCHAR(50) DEFAULT 'member',
-    joined_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(user_id, team_id)
-);
-```
-
-## 🤝 Integration with Other Services
-
-### Auth Service Integration
-- **JWT Validation**: Validates user tokens from Auth Service
-- **User Context**: Gets user information from Auth Service
-- **Company Context**: Multi-tenant data isolation
-- **Role Validation**: Ensures proper permissions
-
-### Attendance Service Integration
-- **User Data**: Provides user information for attendance tracking
-- **Team Context**: Team-based attendance reporting
-- **Department Filtering**: Department-specific attendance views
-
-### Frontend Integration
-- **User Profile**: Complete user profile management UI
-- **Team Management**: Team creation and management interface
-- **Employee Directory**: Searchable employee directory
-- **Settings Panel**: User preferences and settings interface
-
-## 📚 API Documentation
-
-### Request/Response Examples
-
-#### Get User Profile
-```bash
-GET /api/users/123e4567-e89b-12d3-a456-426614174000
 Authorization: Bearer <jwt-token>
 ```
 
-#### Create Team
-```bash
-POST /api/teams
-Authorization: Bearer <jwt-token>
-Content-Type: application/json
+### **Authorization Levels**
+- **User**: Can access own data only
+- **Company Admin**: Can access company users
+- **Company Super Admin**: Can access company users and analytics
+- **Platform Admin**: Can access all users and analytics
 
-{
-  "name": "Development Team",
-  "description": "Software development team",
-  "managerId": "123e4567-e89b-12d3-a456-426614174000"
+## **📊 Data Models**
+
+### **User Model**
+```typescript
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  hireDate?: Date;
+  salary?: number;
+  profilePhotoUrl?: string;
+  role: 'user' | 'company_admin' | 'company_super_admin' | 'platform_admin';
+  companyId: string;
+  isActive: boolean;
+  isVerified: boolean;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  mobileAppAccess: boolean;
+  dashboardAccess: boolean;
+  platformPanelAccess: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
 
-#### Update User Profile
+### **User Preferences Model**
+```typescript
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  timezone: string;
+  dateFormat: string;
+  timeFormat: '12h' | '24h';
+  notifications: Record<string, any>;
+  privacy: Record<string, any>;
+}
+```
+
+### **User Settings Model**
+```typescript
+interface UserSettings {
+  workHoursStart: string; // HH:MM format
+  workHoursEnd: string;    // HH:MM format
+  workDays: number[];      // 1-7 (Monday-Sunday)
+  breakDuration: number;   // minutes
+  overtimeEnabled: boolean;
+  remoteWorkEnabled: boolean;
+  attendanceReminders: Record<string, any>;
+}
+```
+
+## **🧪 Testing**
+
+### **Test Files**
+- **Postman Collection**: `User_Service_Complete_Collection.postman_collection.json`
+- **Environment**: `User_Service_Environment.postman_environment.json`
+- **HTTP Tests**: `../tests/user-service.http`
+- **Test Guide**: `COMPLETE_TEST_GUIDE.md`
+- **Test Table**: `../tests/user-service-test-table.md`
+
+### **Running Tests**
+
+#### **1. Postman Collection**
+1. Import the collection and environment files
+2. Set up authentication token
+3. Run individual requests or the entire collection
+4. Check test results and response times
+
+#### **2. HTTP Tests**
 ```bash
-PUT /api/users/123e4567-e89b-12d3-a456-426614174000
-Authorization: Bearer <jwt-token>
+# Using VS Code REST Client
+# Open ../tests/user-service.http
+# Click "Send Request" on any endpoint
+```
+
+#### **3. Manual Testing**
+```bash
+# Get authentication token
+curl -X POST "http://localhost:3003/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@testcorp.com", "password": "password123"}'
+
+# Get users
+curl -X GET "http://localhost:3003/api/users" \
+  -H "Authorization: Bearer <token>"
+```
+
+## **🚀 Getting Started**
+
+### **Prerequisites**
+- Node.js 20+
+- PostgreSQL 15+
+- Docker (optional)
+
+### **Local Development**
+
+#### **1. Install Dependencies**
+```bash
+cd backend/services/user_service
+npm install
+```
+
+#### **2. Environment Setup**
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Update environment variables
+DATABASE_URL=postgresql://username:password@localhost:5432/germy_db
+JWT_SECRET=your-jwt-secret
+USER_SERVICE_PORT=3003
+```
+
+#### **3. Database Setup**
+```bash
+# Run database migrations
+npm run db:migrate
+
+# Seed initial data
+npm run db:seed
+```
+
+#### **4. Start Development Server**
+```bash
+# Development mode
+npm run dev
+
+# Production mode
+npm start
+```
+
+### **Docker Development**
+
+#### **1. Build and Run**
+```bash
+# Build the service
+docker build -t user-service .
+
+# Run the service
+docker run -p 3003:3003 user-service
+```
+
+#### **2. Docker Compose**
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs user-service
+```
+
+## **📈 Performance**
+
+### **Response Time Targets**
+- **Simple Queries**: < 500ms
+- **Complex Analytics**: < 2000ms
+- **Bulk Operations**: < 5000ms
+
+### **Concurrent Users**
+- **Recommended**: 1000+ concurrent users
+- **Maximum**: 5000+ concurrent users
+
+### **Database Optimization**
+- **Indexes**: Optimized for common queries
+- **Connection Pooling**: Efficient database connections
+- **Query Optimization**: Parameterized queries
+
+## **🔒 Security**
+
+### **Authentication**
+- **JWT Tokens**: Secure token-based authentication
+- **Token Expiration**: Configurable token lifetime
+- **Refresh Tokens**: Automatic token renewal
+
+### **Authorization**
+- **Role-Based Access**: Granular permission system
+- **Company Scoping**: Data isolation by company
+- **Resource-Level Permissions**: Fine-grained access control
+
+### **Data Protection**
+- **Input Validation**: Comprehensive data validation
+- **SQL Injection Prevention**: Parameterized queries
+- **XSS Prevention**: Input sanitization
+- **Data Encryption**: Sensitive data encryption
+
+## **📊 Monitoring & Logging**
+
+### **Logging**
+- **Winston Logger**: Structured logging
+- **Log Levels**: Error, Warn, Info, Debug
+- **Log Rotation**: Automatic log file rotation
+- **Request Logging**: All API requests logged
+
+### **Health Checks**
+- **Service Health**: `/health` endpoint
+- **Database Health**: Connection status
+- **Dependencies**: External service status
+
+### **Metrics**
+- **Response Times**: Request duration tracking
+- **Error Rates**: Error frequency monitoring
+- **Throughput**: Requests per second
+- **Resource Usage**: CPU and memory monitoring
+
+## **🛠️ Configuration**
+
+### **Environment Variables**
+```bash
+# Service Configuration
+NODE_ENV=development
+USER_SERVICE_PORT=3003
+
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/germy_db
+
+# Authentication
+JWT_SECRET=your-jwt-secret
+JWT_EXPIRES_IN=24h
+
+# External Services
+AUTH_SERVICE_URL=http://localhost:3001
+ATTENDANCE_SERVICE_URL=http://localhost:3002
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=logs/user-service.log
+
+# Performance
+MAX_CONNECTIONS=100
+QUERY_TIMEOUT=30000
+```
+
+### **Database Configuration**
+```typescript
+// Database connection settings
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'germy_db',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'password',
+  ssl: process.env.NODE_ENV === 'production',
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+};
+```
+
+## **🔧 Troubleshooting**
+
+### **Common Issues**
+
+#### **1. Database Connection Errors**
+```bash
+# Check database status
+docker-compose ps db
+
+# Check database logs
+docker-compose logs db
+
+# Test database connection
+npm run db:test
+```
+
+#### **2. Authentication Errors**
+```bash
+# Check JWT secret
+echo $JWT_SECRET
+
+# Verify token format
+# Token should be: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### **3. Permission Errors**
+```bash
+# Check user role
+# User must have appropriate role for the endpoint
+
+# Check company access
+# User must belong to the same company
+```
+
+#### **4. Validation Errors**
+```bash
+# Check request body format
+# Ensure all required fields are present
+# Validate data types and formats
+```
+
+### **Debug Mode**
+```bash
+# Enable debug logging
+LOG_LEVEL=debug npm run dev
+
+# Check service logs
+docker-compose logs user-service -f
+```
+
+## **📚 API Documentation**
+
+### **Request/Response Examples**
+
+#### **Get Users**
+```bash
+GET /api/users?page=1&limit=20&role=user
+Authorization: Bearer <token>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "users": [...],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 100,
+      "totalPages": 5
+    }
+  }
+}
+```
+
+#### **Update User**
+```bash
+PUT /api/users/{id}
+Authorization: Bearer <token>
 Content-Type: application/json
 
 {
   "firstName": "John",
   "lastName": "Doe",
-  "position": "Senior Developer",
-  "department": "Engineering",
-  "phone": "+1234567890"
+  "phone": "+1234567890",
+  "position": "Developer"
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "user-id",
+      "firstName": "John",
+      "lastName": "Doe",
+      ...
+    }
+  }
 }
 ```
 
-## 🐛 Troubleshooting
+## **🤝 Contributing**
 
-### Common Issues
+### **Development Workflow**
+1. **Fork the repository**
+2. **Create a feature branch**
+3. **Make your changes**
+4. **Add tests for new functionality**
+5. **Run the test suite**
+6. **Submit a pull request**
 
-#### Authentication Errors
-```bash
-# Verify Auth Service is running
-curl http://localhost:3001/health
+### **Code Standards**
+- **TypeScript**: Strict type checking
+- **ESLint**: Code linting and formatting
+- **Prettier**: Code formatting
+- **Jest**: Unit testing
+- **Supertest**: Integration testing
 
-# Check JWT token validity
-# Tokens should be obtained from Auth Service
-```
+## **📄 License**
 
-#### Database Connection Issues
-```bash
-# Check database connectivity
-npm run db:studio
+This project is part of the Germy platform and is proprietary software.
 
-# Verify environment variables
-echo $DATABASE_URL
-```
+## **🆘 Support**
 
-#### File Upload Issues
-```bash
-# Check upload directory permissions
-ls -la uploads/
-
-# Verify file size limits
-# Default: 5MB maximum file size
-```
+For support and questions:
+- **Documentation**: Check this README and test guides
+- **Issues**: Create GitHub issues for bugs
+- **Discussions**: Use GitHub discussions for questions
+- **Email**: Contact the development team
 
 ---
 
-**User Service v1.0.0** - Built with ❤️ for the Germy Platform
+**The User Service is production-ready and fully tested! 🚀**

@@ -29,20 +29,61 @@ export const companies = pgTable('companies', {
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(),
-  password: varchar('password', { length: 255 }).notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }),
   firstName: varchar('first_name', { length: 100 }).notNull(),
   lastName: varchar('last_name', { length: 100 }).notNull(),
-  phone: varchar('phone', { length: 20 }),
+  phone: varchar('phone', { length: 50 }),
+  employeeId: varchar('employee_id', { length: 100 }),
+  role: varchar('role', { length: 50 }).notNull().default('user'),
   position: varchar('position', { length: 100 }),
   department: varchar('department', { length: 100 }),
   hireDate: timestamp('hire_date', { withTimezone: true }),
-  salary: integer('salary'),
+  salary: varchar('salary', { length: 20 }), // Using varchar to match DECIMAL in DB
   profilePhotoUrl: varchar('profile_photo_url', { length: 500 }),
-  role: varchar('role', { length: 50 }).notNull().default('user'),
+  
+  // Face encoding data
+  faceEncodingData: text('face_encoding_data'),
+  faceEncodingCreatedAt: timestamp('face_encoding_created_at', { withTimezone: true }),
+  faceEncodingExpiresAt: timestamp('face_encoding_expires_at', { withTimezone: true }),
+  faceEncodingQualityScore: varchar('face_encoding_quality_score', { length: 10 }),
+  
+  // Work mode
+  workMode: varchar('work_mode', { length: 20 }).default('onsite'),
+  hybridRemoteDays: integer('hybrid_remote_days').default(0),
+  preferredRemoteDays: text('preferred_remote_days'),
+  homeAddress: text('home_address'),
+  homeLatitude: varchar('home_latitude', { length: 20 }),
+  homeLongitude: varchar('home_longitude', { length: 20 }),
+  homeGeofenceRadius: integer('home_geofence_radius').default(100),
+  
+  // Approval system
+  approvalStatus: varchar('approval_status', { length: 20 }).notNull().default('pending'),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  rejectionReason: text('rejection_reason'),
+  
+  // Access control
   isActive: boolean('is_active').notNull().default(true),
   isVerified: boolean('is_verified').notNull().default(false),
   lastLogin: timestamp('last_login', { withTimezone: true }),
-  companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  passwordResetToken: varchar('password_reset_token', { length: 255 }),
+  passwordResetExpires: timestamp('password_reset_expires', { withTimezone: true }),
+  emailVerificationToken: varchar('email_verification_token', { length: 255 }),
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+  
+  // Mobile app access
+  mobileAppAccess: boolean('mobile_app_access').notNull().default(false),
+  mobileAppLastUsed: timestamp('mobile_app_last_used', { withTimezone: true }),
+  
+  // Dashboard access
+  dashboardAccess: boolean('dashboard_access').notNull().default(false),
+  dashboardLastUsed: timestamp('dashboard_last_used', { withTimezone: true }),
+  
+  // Platform panel access
+  platformPanelAccess: boolean('platform_panel_access').notNull().default(false),
+  platformPanelLastUsed: timestamp('platform_panel_last_used', { withTimezone: true }),
+  
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
