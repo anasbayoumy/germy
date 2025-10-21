@@ -77,7 +77,7 @@ export const registerCompanyAdminSchema = z.object({
   }),
 });
 
-// Employee Registration Schema (creates employee in existing company)
+// User Registration Schema (creates user in existing company)
 export const registerEmployeeSchema = z.object({
   body: z.object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -143,3 +143,52 @@ export type RegisterInput = z.infer<typeof registerSchema>['body'];
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>['body'];
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>['body'];
 export type VerifyTokenInput = z.infer<typeof verifyTokenSchema>['body'];
+
+// Domain-based Registration Schemas
+export const registerUserWithDomainSchema = z.object({
+  body: z.object({
+    companyDomain: z.string().min(1, 'Company domain is required'),
+    firstName: z.string().min(2, 'First name must be at least 2 characters'),
+    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+    email: z.string().email('Invalid email format'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    phone: z.string().optional(),
+    position: z.string().optional(),
+    department: z.string().optional(),
+  }),
+});
+
+export const registerAdminWithDomainSchema = z.object({
+  body: z.object({
+    companyDomain: z.string().min(1, 'Company domain is required'),
+    firstName: z.string().min(2, 'First name must be at least 2 characters'),
+    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+    email: z.string().email('Invalid email format').refine((email) => {
+      const domain = email.split('@')[1];
+      const personalDomains = ['gmail.com', 'outlook.com', 'yahoo.com', 'hotmail.com', 'icloud.com'];
+      return !personalDomains.includes(domain);
+    }, { message: 'Admin email must be a work email address (@workaddress.whatever), not personal email (@gmail, @outlook, etc.)' }),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    phone: z.string().optional(),
+    position: z.string().optional(),
+    department: z.string().optional(),
+  }),
+});
+
+export const manualRegisterUserSchema = z.object({
+  body: z.object({
+    companyDomain: z.string().min(1, 'Company domain is required'),
+    firstName: z.string().min(2, 'First name must be at least 2 characters'),
+    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+    email: z.string().email('Invalid email format'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    phone: z.string().optional(),
+    position: z.string().optional(),
+    department: z.string().optional(),
+    role: z.enum(['user', 'company_admin'], { message: 'Role must be either user or company_admin' }),
+  }),
+});
+
+export type RegisterUserWithDomainInput = z.infer<typeof registerUserWithDomainSchema>['body'];
+export type RegisterAdminWithDomainInput = z.infer<typeof registerAdminWithDomainSchema>['body'];
+export type ManualRegisterUserInput = z.infer<typeof manualRegisterUserSchema>['body'];

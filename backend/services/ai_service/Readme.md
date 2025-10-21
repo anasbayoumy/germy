@@ -266,7 +266,7 @@ POST /api/ai/chat/message
   "context": {
     "sessionId": "string",
     "previousMessages": [...],
-    "userRole": "employee" | "admin" | "super_admin"
+    "userRole": "user" | "company_admin" | "company_super_admin"
   }
 }
 

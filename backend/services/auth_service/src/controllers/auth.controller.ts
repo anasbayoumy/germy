@@ -476,4 +476,98 @@ export class AuthController {
       });
     }
   }
+
+  // Domain-based User Registration
+  async registerUserWithDomain(req: Request, res: Response): Promise<void> {
+    try {
+      const { companyDomain, firstName, lastName, email, password, phone, position, department } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.registerUserWithDomain(
+        { companyDomain, firstName, lastName, email, password, phone, position, department },
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Domain-based user registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Domain-based Admin Registration
+  async registerAdminWithDomain(req: Request, res: Response): Promise<void> {
+    try {
+      const { companyDomain, firstName, lastName, email, password, phone, position, department } = req.body;
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      const result = await this.authService.registerAdminWithDomain(
+        { companyDomain, firstName, lastName, email, password, phone, position, department },
+        ipAddress,
+        userAgent
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Domain-based admin registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Manual User Registration by Admin
+  async manualRegisterUser(req: AuthenticatedRequest, res: Response) {
+    try {
+      const data = req.body;
+      const adminId = req.user?.userId;
+      const adminRole = req.user?.role;
+
+      if (!adminId || !adminRole) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+        return;
+      }
+
+      const result = await this.authService.manualRegisterUser(
+        data,
+        adminId,
+        adminRole,
+        req.ip,
+        req.get('User-Agent')
+      );
+
+      if (!result.success) {
+        res.status(400).json(result);
+        return;
+      }
+
+      res.status(201).json(result);
+    } catch (error) {
+      logger.error('Manual user registration controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
 }

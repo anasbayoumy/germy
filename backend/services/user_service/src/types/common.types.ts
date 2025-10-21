@@ -40,7 +40,7 @@ export interface ApiResponse<T = any> {
   export interface AuthenticatedUser {
     userId: string;
     companyId: string;
-    role: 'platform_super_admin' | 'company_super_admin' | 'company_admin' | 'employee';
+    role: 'platform_admin' | 'company_super_admin' | 'admin' | 'user';
   }
   
   export interface ServiceResult<T = any> {

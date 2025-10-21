@@ -41,7 +41,7 @@ export const platformAdmins = pgTable('platform_admins', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(),
   email: text('email').notNull(),
-  role: text('role', { enum: ['platform_admin', 'platform_super_admin'] }).default('platform_admin'),
+  role: text('role', { enum: ['platform_admin'] }).default('platform_admin'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 });
 

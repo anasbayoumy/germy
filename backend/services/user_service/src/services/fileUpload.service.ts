@@ -16,7 +16,7 @@ export class FileUploadService {
   ) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         return {
           success: false,
           message: 'Users can only upload their own profile pictures',
@@ -76,7 +76,7 @@ export class FileUploadService {
   ) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         return {
           success: false,
           message: 'Users can only delete their own profile pictures',
@@ -233,7 +233,7 @@ export class FileUploadService {
   async bulkDeleteUserFiles(userId: string, filenames: string[], requestingUserId: string, requestingUserRole: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         return {
           success: false,
           message: 'Users can only delete their own files',

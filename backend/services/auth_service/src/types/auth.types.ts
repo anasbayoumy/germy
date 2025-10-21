@@ -34,7 +34,7 @@ export interface TokenPayload {
   exp?: number;
 }
 
-export type UserRole = 'platform_super_admin' | 'company_super_admin' | 'company_admin' | 'employee';
+export type UserRole = 'platform_admin' | 'company_super_admin' | 'company_admin' | 'user';
 
 // Legacy interface for backward compatibility
 export interface RegisterData {

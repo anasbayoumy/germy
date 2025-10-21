@@ -1,7 +1,7 @@
 import express from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
-import { authenticateToken, requirePlatformAdmin, requireCompanySuperAdmin, requireCompanyAdmin, requireAdminOrSuperAdmin, requireSuperAdminOrHigher } from '../middleware/auth.middleware';
+import { authenticateToken, requirePlatformAdmin, requireAdminOrSuperAdmin } from '../middleware/auth.middleware';
 import { 
   authLimiter, 
   passwordResetLimiter, 
@@ -14,8 +14,9 @@ import {
   registerSchema,
   registerPlatformAdminSchema,
   registerCompanySuperAdminSchema,
-  registerCompanyAdminSchema,
-  registerEmployeeSchema,
+  registerUserWithDomainSchema,
+  registerAdminWithDomainSchema,
+  manualRegisterUserSchema,
   forgotPasswordSchema,
   resetPasswordSchema
 } from '../schemas/auth.schemas';
@@ -35,8 +36,10 @@ router.post('/login', authLimiter, validateRequest(loginSchema), authController.
 // Role-specific registration endpoints (with registration rate limiting)
 router.post('/platform/register', platformAdminLimiter, authenticateToken, requirePlatformAdmin, validateRequest(registerPlatformAdminSchema), authController.registerPlatformAdmin.bind(authController));
 router.post('/super_admin/register', registrationLimiter, validateRequest(registerCompanySuperAdminSchema), authController.registerCompanySuperAdmin.bind(authController));
-router.post('/admin/register', registrationLimiter, authenticateToken, requireSuperAdminOrHigher, validateRequest(registerCompanyAdminSchema), authController.registerCompanyAdmin.bind(authController));
-router.post('/user/register', registrationLimiter, authenticateToken, requireAdminOrSuperAdmin, validateRequest(registerEmployeeSchema), authController.registerEmployee.bind(authController));
+
+// Domain-based registration endpoints (no authentication required)
+router.post('/admin/register', registrationLimiter, validateRequest(registerAdminWithDomainSchema), authController.registerAdminWithDomain.bind(authController));
+router.post('/user/register', registrationLimiter, validateRequest(registerUserWithDomainSchema), authController.registerUserWithDomain.bind(authController));
 
 // Legacy registration endpoint (for backward compatibility)
 router.post('/register', registrationLimiter, validateRequest(registerSchema), authController.register.bind(authController));
@@ -52,5 +55,8 @@ router.post('/refresh', authenticateToken, authController.refreshToken.bind(auth
 //=======================================================================================================
 //=======================================================================================================
 router.get('/me', authenticateToken, authController.getCurrentUser.bind(authController));
+
+// Admin manual registration (for rejected users)
+router.post('/manual-register', authenticateToken, requireAdminOrSuperAdmin, validateRequest(manualRegisterUserSchema), authController.manualRegisterUser.bind(authController));
 
 export default router;

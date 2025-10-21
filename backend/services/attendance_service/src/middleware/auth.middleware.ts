@@ -61,7 +61,7 @@ export function requireUserAccess(req: AuthenticatedRequest, res: Response, next
   }
 
   // Allow if user has admin or higher role
-  if (role === 'admin' || role === 'company_super_admin' || role === 'platform_admin') {
+  if (role === 'company_admin' || role === 'company_super_admin' || role === 'platform_admin') {
     next();
     return;
   }
@@ -85,7 +85,7 @@ export function requireUserAccess(req: AuthenticatedRequest, res: Response, next
 export function requireAdminAccess(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   const { role } = req.user!;
 
-  if (role === 'admin' || role === 'company_super_admin' || role === 'platform_admin') {
+  if (role === 'company_admin' || role === 'company_super_admin' || role === 'platform_admin') {
     next();
     return;
   }

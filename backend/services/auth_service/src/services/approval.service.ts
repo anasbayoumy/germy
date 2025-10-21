@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import { db } from '../config/database';
 import { users, userApprovalRequests } from '../db/schema';
 import { logger } from '../utils/logger';
@@ -30,7 +30,7 @@ export class ApprovalService {
   ): Promise<ApprovalResult> {
     try {
       // Validate requester permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to create approval requests',
@@ -118,7 +118,7 @@ export class ApprovalService {
   ): Promise<ApprovalResult> {
     try {
       // Validate requester permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to view approval requests',
@@ -163,7 +163,7 @@ export class ApprovalService {
           .limit(filters.limit)
           .offset(offset),
         db
-          .select({ count: userApprovalRequests.id })
+          .select({ count: count() })
           .from(userApprovalRequests)
           .where(whereCondition)
       ]);
@@ -176,8 +176,8 @@ export class ApprovalService {
           pagination: {
             page: filters.page,
             limit: filters.limit,
-            total: totalCount.length,
-            totalPages: Math.ceil(totalCount.length / filters.limit),
+            total: totalCount[0]?.count || 0,
+            totalPages: Math.ceil((totalCount[0]?.count || 0) / filters.limit),
           },
         },
       };
@@ -201,8 +201,10 @@ export class ApprovalService {
     userAgent?: string
   ): Promise<ApprovalResult> {
     try {
+      logger.info(`Attempting to approve request: ${requestId} by ${approverId}`);
+      
       // Validate approver permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(approverRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(approverRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to approve users',
@@ -217,6 +219,7 @@ export class ApprovalService {
         .limit(1);
 
       if (approvalRequest.length === 0) {
+        logger.error(`Approval request not found: ${requestId}`);
         return {
           success: false,
           message: 'Approval request not found',
@@ -224,6 +227,7 @@ export class ApprovalService {
       }
 
       const request = approvalRequest[0];
+      logger.info(`Found approval request: ${JSON.stringify(request)}`);
 
       // Check if request is still pending
       if (request.status !== 'pending') {
@@ -242,7 +246,9 @@ export class ApprovalService {
       }
 
       // Start transaction
-      const result = await db.transaction(async (tx) => {
+      logger.info(`Starting transaction for approval: ${requestId}`);
+      await db.transaction(async (tx) => {
+        logger.info(`Updating approval request: ${requestId}`);
         // Update approval request
         await tx
           .update(userApprovalRequests)
@@ -257,8 +263,7 @@ export class ApprovalService {
         // Update user
         const updateData: any = {
           approvalStatus: 'approved',
-          approvedBy: approverId,
-          approvedAt: new Date(),
+          isVerified: true,
         };
 
         // Set role-based access permissions
@@ -266,7 +271,7 @@ export class ApprovalService {
           case 'user':
             updateData.mobileAppAccess = true;
             break;
-          case 'admin':
+          case 'company_admin':
             updateData.mobileAppAccess = true;
             updateData.dashboardAccess = true;
             break;
@@ -278,12 +283,11 @@ export class ApprovalService {
             break;
         }
 
+        logger.info(`Updating user: ${request.userId} with data: ${JSON.stringify(updateData)}`);
         await tx
           .update(users)
           .set(updateData)
           .where(eq(users.id, request.userId));
-
-        return { success: true };
       });
 
       logger.info(`User ${request.userId} approved by ${approverId}`);
@@ -313,7 +317,7 @@ export class ApprovalService {
   ): Promise<ApprovalResult> {
     try {
       // Validate rejector permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(rejectorRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(rejectorRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to reject users',
@@ -370,7 +374,6 @@ export class ApprovalService {
           .update(users)
           .set({
             approvalStatus: 'rejected',
-            rejectionReason: reason,
           })
           .where(eq(users.id, request.userId));
       });
@@ -400,7 +403,7 @@ export class ApprovalService {
   ): Promise<ApprovalResult> {
     try {
       // Validate requester permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to view approval history',
@@ -434,7 +437,7 @@ export class ApprovalService {
           .limit(filters.limit)
           .offset(offset),
         db
-          .select({ count: userApprovalRequests.id })
+          .select({ count: count() })
           .from(userApprovalRequests)
           .where(eq(userApprovalRequests.userId, userId))
       ]);
@@ -447,8 +450,8 @@ export class ApprovalService {
           pagination: {
             page: filters.page,
             limit: filters.limit,
-            total: totalCount.length,
-            totalPages: Math.ceil(totalCount.length / filters.limit),
+            total: totalCount[0]?.count || 0,
+            totalPages: Math.ceil((totalCount[0]?.count || 0) / filters.limit),
           },
         },
       };

@@ -25,7 +25,7 @@ export class FaceEncodingService {
   ): Promise<FaceEncodingResult> {
     try {
       // Validate requester permissions
-      if (!['user', 'admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['user', 'company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to create face encodings',
@@ -148,7 +148,7 @@ export class FaceEncodingService {
   ): Promise<FaceEncodingResult> {
     try {
       // Validate requester permissions
-      if (!['user', 'admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['user', 'company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to view face encodings',
@@ -231,7 +231,7 @@ export class FaceEncodingService {
   ): Promise<FaceEncodingResult> {
     try {
       // Validate requester permissions
-      if (!['user', 'admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['user', 'company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to update face encodings',
@@ -348,7 +348,7 @@ export class FaceEncodingService {
   ): Promise<FaceEncodingResult> {
     try {
       // Validate requester permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to delete face encodings',
@@ -423,7 +423,7 @@ export class FaceEncodingService {
   ): Promise<FaceEncodingResult> {
     try {
       // Validate requester permissions
-      if (!['user', 'admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['user', 'company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to view face encoding status',
@@ -510,7 +510,7 @@ export class FaceEncodingService {
   ): Promise<FaceEncodingResult> {
     try {
       // Validate requester permissions
-      if (!['admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(requesterRole)) {
         return {
           success: false,
           message: 'Insufficient permissions to view expiring face encodings',

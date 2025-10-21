@@ -1,4 +1,4 @@
-import { eq, and, like, desc, count, sql } from 'drizzle-orm';
+import { eq, and, or, like, desc, count, sql } from 'drizzle-orm';
 import { db } from '../config/database';
 import { users, companies, userPreferences, userSettings, userActivities } from '../db/schema';
 import { logger } from '../utils/logger';
@@ -34,7 +34,7 @@ export class UserService {
       // Build conditions array
       const conditions = [];
       
-      if (requestingUserRole === 'platform_super_admin') {
+      if (requestingUserRole === 'platform_admin') {
         // Platform admin can see all users
         if (companyId) {
           conditions.push(eq(users.companyId, companyId));
@@ -45,9 +45,17 @@ export class UserService {
       }
       
       if (search) {
+        // Debug: Log the search query
+        console.log(`Search query: "${search}"`);
+        console.log(`Users table:`, users);
+        console.log(`Users email field:`, users.email);
+        
+        // Try a simpler approach - just search in email first
         conditions.push(
-          sql`CONCAT(${users.firstName}, ' ', ${users.lastName}) ILIKE ${'%' + search + '%'}`
+          sql`${users.email} ILIKE ${'%' + search + '%'}`
         );
+        
+        console.log(`Conditions after search:`, conditions);
       }
       
       if (role) {
@@ -90,7 +98,7 @@ export class UserService {
           .limit(limit)
           .offset(offset),
         db.select({ count: count() }).from(users).where(
-          requestingUserRole === 'platform_super_admin' 
+          requestingUserRole === 'platform_admin' 
             ? (companyId ? eq(users.companyId, companyId) : sql`1=1`)
             : eq(users.companyId, requestingUserCompanyId)
         ),
@@ -146,7 +154,7 @@ export class UserService {
       const userData = user[0];
 
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userData.companyId !== requestingUserCompanyId) {
+      if (requestingUserRole !== 'platform_admin' && userData.companyId !== requestingUserCompanyId) {
         return null; // User can't access users from other companies
       }
 
@@ -169,7 +177,7 @@ export class UserService {
       }
 
       // Role-based update restrictions
-      if (requestingUserRole === 'employee' && userId !== requestingUserId) {
+      if (requestingUserRole === 'user' && userId !== requestingUserId) {
         return {
           success: false,
           message: 'Employees can only update their own profile',
@@ -234,7 +242,7 @@ export class UserService {
       }
 
       // Role-based restrictions
-      if (requestingUserRole === 'employee') {
+      if (requestingUserRole === 'user') {
         return {
           success: false,
           message: 'Employees cannot deactivate users',
@@ -296,7 +304,7 @@ export class UserService {
   async getUserPreferences(userId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
         if (!user) {
           return null;
@@ -319,7 +327,7 @@ export class UserService {
   async updateUserPreferences(userId: string, preferencesData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         return {
           success: false,
           message: 'Users can only update their own preferences',
@@ -370,7 +378,7 @@ export class UserService {
   async getUserActivities(userId: string, page: number = 1, limit: number = 20, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
         if (!user) {
           return null;
@@ -427,7 +435,7 @@ export class UserService {
   async getUserSettings(userId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
         if (!user) {
           return null;
@@ -450,7 +458,7 @@ export class UserService {
   async updateUserSettings(userId: string, settingsData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         return {
           success: false,
           message: 'Users can only update their own settings',
@@ -502,7 +510,7 @@ export class UserService {
   async getUserStatistics(userId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
         if (!user) {
           return null;
@@ -572,7 +580,7 @@ export class UserService {
   async getCompanyUserAnalytics(companyId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && companyId !== requestingUserCompanyId) {
+      if (requestingUserRole !== 'platform_admin' && companyId !== requestingUserCompanyId) {
         return {
           success: false,
           message: 'Insufficient permissions to view company analytics',
@@ -654,7 +662,7 @@ export class UserService {
   async getUserActivitySummary(userId: string, days: number = 30, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
         const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
         if (!user) {
           return null;
@@ -727,7 +735,7 @@ export class UserService {
   async bulkUpdateUsers(userIds: string[], updateData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
     try {
       // Check permissions - only admins can bulk update
-      if (!['platform_super_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
         return {
           success: false,
           message: 'Insufficient permissions for bulk operations',
@@ -810,7 +818,7 @@ export class UserService {
   async exportUsers(companyId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
     try {
       // Check permissions
-      if (requestingUserRole !== 'platform_super_admin' && companyId !== requestingUserCompanyId) {
+      if (requestingUserRole !== 'platform_admin' && companyId !== requestingUserCompanyId) {
         return {
           success: false,
           message: 'Insufficient permissions to export users',
@@ -873,7 +881,7 @@ export class UserService {
   async importUsers(usersData: any[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
     try {
       // Check permissions - only admins can import
-      if (!['platform_super_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
         return {
           success: false,
           message: 'Insufficient permissions for import operations',
@@ -927,7 +935,7 @@ export class UserService {
               department: userData.department,
               hireDate: userData.hireDate ? new Date(userData.hireDate) : null,
               salary: userData.salary,
-              role: userData.role || 'employee',
+              role: userData.role || 'user',
               isActive: userData.isActive !== undefined ? userData.isActive : true,
               isVerified: false, // Imported users need to verify
               companyId: requestingUserCompanyId,

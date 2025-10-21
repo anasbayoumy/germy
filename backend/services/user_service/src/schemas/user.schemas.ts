@@ -6,7 +6,7 @@ export const userSchemas = {
     page: z.string().transform(Number).default('1'),
     limit: z.string().transform(Number).default('20'),
     search: z.string().optional(),
-    role: z.enum(['platform_super_admin', 'company_super_admin', 'company_admin', 'employee']).optional(),
+    role: z.enum(['platform_admin', 'company_super_admin', 'company_admin', 'user']).optional(),
     isActive: z.enum(['true', 'false']).optional(),
   }),
 
@@ -108,7 +108,7 @@ export const userSchemas = {
         department: z.string().max(100).optional(),
         hireDate: z.string().datetime().optional(),
         salary: z.number().min(0).optional(),
-        role: z.enum(['employee', 'company_admin', 'company_super_admin']).default('employee'),
+        role: z.enum(['user', 'company_admin', 'company_super_admin']).default('user'),
         isActive: z.boolean().default(true),
       })).min(1, 'At least one user is required'),
     }),

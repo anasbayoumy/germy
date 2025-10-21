@@ -1,0 +1,487 @@
+{
+  "info": {
+    "name": "Auth Service - Updated API Collection (Domain-Based)",
+    "description": "Updated collection for testing Auth Service with new domain-based registration endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "platformToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "superAdminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testCompanyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testCompanyDomain",
+      "value": "testcorp.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏢 Company Setup (Step 1)",
+      "item": [
+        {
+          "name": "Create Platform Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Platform\",\n  \"lastName\": \"Admin\",\n  \"email\": \"admin@platform.com\",\n  \"password\": \"platform123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('platformToken', response.data.token);",
+                  "        pm.collectionVariables.set('testCompanyId', response.data.company.id);",
+                  "        console.log('Platform Admin created successfully');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Test Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Test Corporation\",\n  \"companyDomain\": \"{{testCompanyDomain}}\",\n  \"firstName\": \"Super\",\n  \"lastName\": \"Admin\",\n  \"email\": \"super@{{testCompanyDomain}}\",\n  \"password\": \"password123\",\n  \"phone\": \"+1234567890\",\n  \"industry\": \"Technology\",\n  \"companySize\": \"50-200\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/super_admin/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "super_admin", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('superAdminToken', response.data.token);",
+                  "        pm.collectionVariables.set('testCompanyId', response.data.company.id);",
+                  "        console.log('Test Company created successfully');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👥 Domain-Based Registration (Step 2)",
+      "item": [
+        {
+          "name": "Register User (Domain-Based)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyDomain\": \"{{testCompanyDomain}}\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@{{testCompanyDomain}}\",\n  \"password\": \"password123\",\n  \"phone\": \"+1234567891\",\n  \"position\": \"Developer\",\n  \"department\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/user/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "user", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success) {",
+                  "        pm.collectionVariables.set('testUserId', response.data.user.id);",
+                  "        console.log('User registered successfully - pending approval');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Admin (Domain-Based)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyDomain\": \"{{testCompanyDomain}}\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Manager\",\n  \"email\": \"jane@{{testCompanyDomain}}\",\n  \"password\": \"password123\",\n  \"phone\": \"+1234567892\",\n  \"position\": \"Team Lead\",\n  \"department\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/admin/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "admin", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success) {",
+                  "        console.log('Admin registered successfully - pending approval');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "❌ Test Non-Existent Domain",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyDomain\": \"nonexistent.com\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"test@nonexistent.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/user/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "user", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return company not found error', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.false;",
+                  "    pm.expect(response.message).to.include('Company not found');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "✅ Approval Workflow (Step 3)",
+      "item": [
+        {
+          "name": "Get Pending Approvals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{superAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "pending"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.approvalRequests.length > 0) {",
+                  "        console.log('Found pending approvals:', response.data.approvalRequests.length);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{superAdminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Approved for testing purposes\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/requests/{{testUserId}}/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "requests", "{{testUserId}}", "approve"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('User should be approved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 Login Tests",
+      "item": [
+        {
+          "name": "Login Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"super@{{testCompanyDomain}}\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/super_admin/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "super_admin", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('superAdminToken', response.data.token);",
+                  "        console.log('Super Admin logged in successfully');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login User (After Approval)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@{{testCompanyDomain}}\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/user/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "user", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('userToken', response.data.token);",
+                  "        console.log('User logged in successfully');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🏢 Platform Management",
+      "item": [
+        {
+          "name": "Get Companies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/companies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "companies"]
+            }
+          }
+        },
+        {
+          "name": "Get Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/subscriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "subscriptions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧪 Automated Test Suite",
+      "item": [
+        {
+          "name": "Run Complete Workflow",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.log('🚀 Starting Complete Auth Service Workflow Test');",
+                  "console.log('Step 1: Company Setup');",
+                  "console.log('Step 2: Domain-Based Registration');",
+                  "console.log('Step 3: Approval Workflow');",
+                  "console.log('Step 4: Login Tests');",
+                  "console.log('Step 5: Platform Management');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Auth Service is healthy', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "});",
+                  "",
+                  "console.log('✅ Auth Service is running and healthy');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

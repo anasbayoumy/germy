@@ -39,6 +39,14 @@ router.put(
 );
 
 router.patch(
+  '/:id',
+  validateParams(userSchemas.userIdParams),
+  validateRequest(userSchemas.updateUser),
+  requireUserAccess,
+  userController.updateUser.bind(userController)
+);
+
+router.patch(
   '/:id/deactivate',
   validateParams(userSchemas.userIdParams),
   requireUserAccess,

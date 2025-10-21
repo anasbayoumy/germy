@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const createApprovalRequestSchema = z.object({
   body: z.object({
     userId: z.string().uuid('Invalid user ID'),
-    requestedRole: z.enum(['user', 'admin', 'company_super_admin', 'platform_admin'], {
+    requestedRole: z.enum(['user', 'company_admin', 'company_super_admin', 'platform_admin'], {
       errorMap: () => ({ message: 'Invalid requested role' }),
     }),
     requestType: z.enum(['new_signup', 'role_change', 'reactivation'], {

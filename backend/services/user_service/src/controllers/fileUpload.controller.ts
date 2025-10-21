@@ -101,7 +101,7 @@ export class FileUploadController {
       const { userId: requestingUserId, role: userRole } = req.user!;
 
       // Check permissions
-      if (userRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (userRole !== 'platform_admin' && userId !== requestingUserId) {
         res.status(403).json({
           success: false,
           message: 'Users can only access their own file metadata',
@@ -134,7 +134,7 @@ export class FileUploadController {
       const { userId: requestingUserId, role: userRole } = req.user!;
 
       // Check permissions
-      if (userRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (userRole !== 'platform_admin' && userId !== requestingUserId) {
         res.status(403).json({
           success: false,
           message: 'Users can only list their own files',
@@ -195,7 +195,7 @@ export class FileUploadController {
       const { userId: requestingUserId, role: userRole } = req.user!;
 
       // Check permissions
-      if (userRole !== 'platform_super_admin' && userId !== requestingUserId) {
+      if (userRole !== 'platform_admin' && userId !== requestingUserId) {
         res.status(403).json({
           success: false,
           message: 'Users can only access their own files',

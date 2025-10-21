@@ -12,7 +12,7 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 100 }).notNull(),
   phone: varchar('phone', { length: 50 }),
   employeeId: varchar('employee_id', { length: 100 }), // Company's internal employee ID
-  role: varchar('role', { length: 50 }).notNull(), // platform_admin, company_super_admin, admin, user
+  role: varchar('role', { length: 50 }).notNull(), // platform_admin, company_super_admin, company_admin, user
   position: varchar('position', { length: 100 }),
   department: varchar('department', { length: 100 }),
   hireDate: timestamp('hire_date', { withTimezone: true }),
@@ -111,7 +111,7 @@ export const userApprovalRequests = pgTable('user_approval_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(), // References users.id but can't self-reference in schema
   companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
-  requestedRole: varchar('requested_role', { length: 50 }).notNull(), // user, admin, company_super_admin
+  requestedRole: varchar('requested_role', { length: 50 }).notNull(), // user, company_admin, company_super_admin
   requestType: varchar('request_type', { length: 50 }).notNull(), // new_signup, role_change, reactivation
   requestData: jsonb('request_data'), // Additional request information
   status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, approved, rejected

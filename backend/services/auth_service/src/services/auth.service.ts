@@ -1,6 +1,6 @@
 import { eq, and, gt } from 'drizzle-orm';
 import { db } from '../config/database';
-import { users, companies, auditLogs } from '../db/schema';
+import { users, companies, auditLogs, userApprovalRequests } from '../db/schema';
 import { logger } from '../utils/logger';
 import { hashPassword, comparePassword } from '../utils/bcrypt';
 import { generateToken, verifyToken } from './jwt.service';
@@ -28,6 +28,7 @@ export interface AuthResult {
     user: any;
     company?: any;
     token?: string;
+    approvalRequest?: any;
   };
 }
 
@@ -215,6 +216,12 @@ export class AuthService {
 
       // Check if user is approved
       if (userData.approvalStatus !== 'approved') {
+        if (userData.approvalStatus === 'rejected') {
+          return {
+            success: false,
+            message: 'Your registration was rejected. Please contact your company admin or super admin to manually register your account.',
+          };
+        }
         return {
           success: false,
           message: 'Account is pending approval',
@@ -341,6 +348,7 @@ export class AuthService {
           companyId: users.companyId,
           isActive: users.isActive,
           isVerified: users.isVerified,
+          approvalStatus: users.approvalStatus,
           companyName: companies.name,
           companyActive: companies.isActive,
         })
@@ -363,6 +371,20 @@ export class AuthService {
         return {
           success: false,
           message: 'Account is deactivated',
+        };
+      }
+
+      // Check if user is approved
+      if (userData.approvalStatus !== 'approved') {
+        if (userData.approvalStatus === 'rejected') {
+          return {
+            success: false,
+            message: 'Your registration was rejected. Please contact your company admin or super admin to manually register your account.',
+          };
+        }
+        return {
+          success: false,
+          message: 'Account is pending approval',
         };
       }
 
@@ -673,7 +695,7 @@ export class AuthService {
           firstName: data.firstName,
           lastName: data.lastName,
           phone: data.phone,
-            role: 'admin',
+            role: 'company_admin',
             mobileAppAccess: true,
             dashboardAccess: true,
             approvalStatus: 'approved',
@@ -795,7 +817,7 @@ export class AuthService {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
-            role: 'employee',
+            role: 'user',
             companyName: company[0].name,
           },
         },
@@ -1094,6 +1116,426 @@ export class AuthService {
       };
     } catch (error) {
       logger.error('Logout error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Domain-based User Registration
+  async registerUserWithDomain(data: {
+    companyDomain: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    position?: string;
+    department?: string;
+  }, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
+    try {
+      // Find company by domain
+      const company = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.domain, data.companyDomain))
+        .limit(1);
+
+      if (company.length === 0) {
+        return {
+          success: false,
+          message: 'Company not found with this domain',
+        };
+      }
+
+      // Check if user already exists
+      const existingUser = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          approvalStatus: users.approvalStatus,
+        })
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1);
+
+      if (existingUser.length > 0) {
+        const user = existingUser[0];
+        
+        // Check if user was previously rejected
+        if (user.approvalStatus === 'rejected') {
+          return {
+            success: false,
+            message: 'Your previous registration was rejected. Please contact your company admin or super admin to manually register your account.',
+          };
+        }
+        
+        return {
+          success: false,
+          message: 'User with this email already exists',
+        };
+      }
+
+      // Create user with pending approval
+      const hashedPassword = await hashPassword(data.password);
+      const [user] = await db
+        .insert(users)
+        .values({
+          email: data.email,
+          passwordHash: hashedPassword,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          position: data.position,
+          department: data.department,
+          role: 'user',
+          companyId: company[0].id,
+          approvalStatus: 'pending',
+          mobileAppAccess: true,
+          isVerified: false,
+        })
+        .returning();
+
+      // Create approval request
+      await db.insert(userApprovalRequests).values({
+        userId: user.id,
+        companyId: company[0].id,
+        requestedRole: 'user',
+        requestType: 'new_signup',
+        requestData: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          position: data.position,
+          department: data.department,
+        },
+        status: 'pending',
+      });
+
+      // Log audit event
+      await this.logAuditEvent({
+        userId: user.id,
+        companyId: company[0].id,
+        action: 'register_pending',
+        resourceType: 'user',
+        resourceId: user.id,
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'User registration pending approval',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: 'user',
+            approvalStatus: 'pending',
+            companyName: company[0].name,
+          },
+          approvalRequest: {
+            status: 'pending',
+            message: 'Your registration is pending approval from your company admin',
+          },
+        },
+      };
+    } catch (error) {
+      logger.error('Domain-based user registration error:', error);
+      return {
+        success: false,
+        message: 'Registration failed',
+      };
+    }
+  }
+
+  // Domain-based Admin Registration
+  async registerAdminWithDomain(data: {
+    companyDomain: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    position?: string;
+    department?: string;
+  }, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
+    try {
+      // Find company by domain
+      const company = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.domain, data.companyDomain))
+        .limit(1);
+
+      if (company.length === 0) {
+        return {
+          success: false,
+          message: 'Company not found with this domain',
+        };
+      }
+
+      // Check if user already exists
+      const existingUser = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          approvalStatus: users.approvalStatus,
+        })
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1);
+
+      if (existingUser.length > 0) {
+        const user = existingUser[0];
+        
+        // Check if user was previously rejected
+        if (user.approvalStatus === 'rejected') {
+          return {
+            success: false,
+            message: 'Your previous registration was rejected. Please contact your company admin or super admin to manually register your account.',
+          };
+        }
+        
+        return {
+          success: false,
+          message: 'User with this email already exists',
+        };
+      }
+
+      // Create admin with pending approval
+      const hashedPassword = await hashPassword(data.password);
+      const [user] = await db
+        .insert(users)
+        .values({
+          email: data.email,
+          passwordHash: hashedPassword,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          position: data.position,
+          department: data.department,
+          role: 'company_admin',
+          companyId: company[0].id,
+          approvalStatus: 'pending',
+          dashboardAccess: true,
+          isVerified: false,
+        })
+        .returning();
+
+      // Create approval request
+      await db.insert(userApprovalRequests).values({
+        userId: user.id,
+        companyId: company[0].id,
+        requestedRole: 'company_admin',
+        requestType: 'new_signup',
+        requestData: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          position: data.position,
+          department: data.department,
+        },
+        status: 'pending',
+      });
+
+      // Log audit event
+      await this.logAuditEvent({
+        userId: user.id,
+        companyId: company[0].id,
+        action: 'register_admin_pending',
+        resourceType: 'user',
+        resourceId: user.id,
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'Admin registration pending approval',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: 'company_admin',
+            approvalStatus: 'pending',
+            companyName: company[0].name,
+          },
+          approvalRequest: {
+            status: 'pending',
+            message: 'Your admin registration is pending approval from your company super admin',
+          },
+        },
+      };
+    } catch (error) {
+      logger.error('Domain-based admin registration error:', error);
+      return {
+        success: false,
+        message: 'Registration failed',
+      };
+    }
+  }
+
+  // Manual User Registration by Admin (for rejected users)
+  async manualRegisterUser(data: {
+    companyDomain: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    position?: string;
+    department?: string;
+    role: 'user' | 'company_admin';
+  }, adminId: string, adminRole: string, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
+    try {
+      // Validate admin permissions
+      if (!['company_admin', 'company_super_admin', 'platform_admin'].includes(adminRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to manually register users',
+        };
+      }
+
+      // Find company by domain
+      const company = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.domain, data.companyDomain))
+        .limit(1);
+
+      if (company.length === 0) {
+        return {
+          success: false,
+          message: 'Company not found with this domain',
+        };
+      }
+
+      // Check if user already exists
+      const existingUser = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          approvalStatus: users.approvalStatus,
+        })
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1);
+
+      if (existingUser.length > 0) {
+        const user = existingUser[0];
+        
+        // If user exists and is not rejected, return error
+        if (user.approvalStatus !== 'rejected') {
+          return {
+            success: false,
+            message: 'User with this email already exists and is not rejected',
+          };
+        }
+        
+        // Update existing rejected user
+        const hashedPassword = await hashPassword(data.password);
+        await db
+          .update(users)
+          .set({
+            firstName: data.firstName,
+            lastName: data.lastName,
+            passwordHash: hashedPassword,
+            phone: data.phone,
+            position: data.position,
+            department: data.department,
+            role: data.role,
+            approvalStatus: 'approved',
+            isVerified: true,
+            mobileAppAccess: data.role === 'user' || data.role === 'company_admin',
+            dashboardAccess: data.role === 'company_admin',
+            approvedBy: adminId,
+            approvedAt: new Date(),
+          })
+          .where(eq(users.id, user.id));
+
+        // Log audit event
+        await this.logAuditEvent({
+          userId: user.id,
+          companyId: company[0].id,
+          action: 'manual_register_approved',
+          resourceType: 'user',
+          resourceId: user.id,
+          ipAddress,
+          userAgent,
+        });
+
+        return {
+          success: true,
+          message: 'User manually registered and approved successfully',
+          data: {
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: data.firstName,
+              lastName: data.lastName,
+              role: data.role,
+              approvalStatus: 'approved',
+            },
+          },
+        };
+      }
+
+      // Create new user (if no existing user)
+      const hashedPassword = await hashPassword(data.password);
+      const [user] = await db
+        .insert(users)
+        .values({
+          email: data.email,
+          passwordHash: hashedPassword,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          position: data.position,
+          department: data.department,
+          role: data.role,
+          companyId: company[0].id,
+          approvalStatus: 'approved',
+          isVerified: true,
+          mobileAppAccess: data.role === 'user' || data.role === 'company_admin',
+          dashboardAccess: data.role === 'company_admin',
+          approvedBy: adminId,
+          approvedAt: new Date(),
+        })
+        .returning();
+
+      // Log audit event
+      await this.logAuditEvent({
+        userId: user.id,
+        companyId: company[0].id,
+        action: 'manual_register_approved',
+        resourceType: 'user',
+        resourceId: user.id,
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'User manually registered and approved successfully',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            approvalStatus: 'approved',
+          },
+        },
+      };
+    } catch (error) {
+      logger.error('Manual register user error:', error);
       return {
         success: false,
         message: 'Internal server error',

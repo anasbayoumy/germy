@@ -38,7 +38,7 @@ export const users = pgTable('users', {
   hireDate: timestamp('hire_date', { withTimezone: true }),
   salary: integer('salary'),
   profilePhotoUrl: varchar('profile_photo_url', { length: 500 }),
-  role: varchar('role', { length: 50 }).notNull().default('employee'),
+  role: varchar('role', { length: 50 }).notNull().default('user'),
   isActive: boolean('is_active').notNull().default(true),
   isVerified: boolean('is_verified').notNull().default(false),
   lastLogin: timestamp('last_login', { withTimezone: true }),

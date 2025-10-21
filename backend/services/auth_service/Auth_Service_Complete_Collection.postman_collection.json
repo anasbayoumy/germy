@@ -1,0 +1,968 @@
+{
+  "info": {
+    "name": "Auth Service - Complete API Collection",
+    "description": "Comprehensive collection for testing all Auth Service endpoints including authentication, user management, platform management, and approval workflows",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "platformToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "superAdminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testCompanyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testUserId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication Endpoints",
+      "item": [
+        {
+          "name": "Platform Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@platform.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('platformToken', response.data.token);",
+                  "        console.log('Platform Admin Token saved:', response.data.token.substring(0, 20) + '...');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Company Super Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"superadmin@testcompany.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('superAdminToken', response.data.token);",
+                  "        pm.collectionVariables.set('testCompanyId', response.data.user.companyId);",
+                  "        console.log('Super Admin Token saved:', response.data.token.substring(0, 20) + '...');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Company Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@testcompany.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('adminToken', response.data.token);",
+                  "        console.log('Admin Token saved:', response.data.token.substring(0, 20) + '...');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@testcompany.com\",\n  \"password\": \"user123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.collectionVariables.set('userToken', response.data.token);",
+                  "        pm.collectionVariables.set('testUserId', response.data.user.id);",
+                  "        console.log('User Token saved:', response.data.token.substring(0, 20) + '...');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User Registration",
+      "item": [
+        {
+          "name": "Register Company (Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Test Company\",\n  \"companyDomain\": \"testcompany.com\",\n  \"firstName\": \"Super\",\n  \"lastName\": \"Admin\",\n  \"email\": \"superadmin@testcompany.com\",\n  \"password\": \"admin123\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-company",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-company"]
+            }
+          }
+        },
+        {
+          "name": "Register Admin (by Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{superAdminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Company\",\n  \"lastName\": \"Admin\",\n  \"email\": \"admin@testcompany.com\",\n  \"password\": \"admin123\",\n  \"phone\": \"+1234567890\",\n  \"position\": \"Manager\",\n  \"department\": \"IT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-admin"]
+            }
+          }
+        },
+        {
+          "name": "Register User (by Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"user@testcompany.com\",\n  \"password\": \"user123\",\n  \"phone\": \"+1234567890\",\n  \"position\": \"Developer\",\n  \"department\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-user",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-user"]
+            }
+          }
+        },
+        {
+          "name": "Register User with Domain",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyDomain\": \"testcompany.com\",\n  \"firstName\": \"Domain\",\n  \"lastName\": \"User\",\n  \"email\": \"domainuser@testcompany.com\",\n  \"password\": \"user123\",\n  \"phone\": \"+1234567890\",\n  \"position\": \"Designer\",\n  \"department\": \"Design\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-with-domain",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-with-domain"]
+            }
+          }
+        },
+        {
+          "name": "Register Admin with Domain",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyDomain\": \"testcompany.com\",\n  \"firstName\": \"Domain\",\n  \"lastName\": \"Admin\",\n  \"email\": \"domainadmin@testcompany.com\",\n  \"password\": \"admin123\",\n  \"phone\": \"+1234567890\",\n  \"position\": \"Team Lead\",\n  \"department\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-admin-with-domain",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-admin-with-domain"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔑 Password Management",
+      "item": [
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@testcompany.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "forgot-password"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"RESET_TOKEN_HERE\",\n  \"password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "reset-password"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"user123\",\n  \"newPassword\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "change-password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 User Management",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\",\n  \"phone\": \"+9876543210\",\n  \"position\": \"Senior Developer\",\n  \"department\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{testUserId}}\",\n  \"reason\": \"Account deactivated by admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/deactivate-user",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "deactivate-user"]
+            }
+          }
+        },
+        {
+          "name": "Reactivate User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{testUserId}}\",\n  \"reason\": \"Account reactivated by admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reactivate-user",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "reactivate-user"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Platform Management",
+      "item": [
+        {
+          "name": "Get Platform Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "status"]
+            }
+          }
+        },
+        {
+          "name": "Get All Companies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/companies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "companies"]
+            }
+          }
+        },
+        {
+          "name": "Get Company Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/companies/{{testCompanyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "companies", "{{testCompanyId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Company Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxUsers\": 100,\n  \"subscriptionStatus\": \"active\",\n  \"subscriptionPlan\": \"premium\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/companies/{{testCompanyId}}/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "companies", "{{testCompanyId}}", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Get Company Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/subscriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "subscriptions"]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/platform/audit-logs?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "platform", "audit-logs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "✅ Approval Management",
+      "item": [
+        {
+          "name": "Get All Approval Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/requests?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "requests"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Approvals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Search Approval Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/search?q=test&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "test"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve User Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"APPROVAL_REQUEST_ID\",\n  \"notes\": \"Approved by platform admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/requests/APPROVAL_REQUEST_ID/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "requests", "APPROVAL_REQUEST_ID", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Reject User Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"APPROVAL_REQUEST_ID\",\n  \"reason\": \"Incomplete information provided\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/requests/APPROVAL_REQUEST_ID/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "requests", "APPROVAL_REQUEST_ID", "reject"]
+            }
+          }
+        },
+        {
+          "name": "Get Approval History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/history/{{testUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "history", "{{testUserId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📸 Face Encoding",
+      "item": [
+        {
+          "name": "Create Face Encoding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": "path/to/face/photo.jpg"
+                },
+                {
+                  "key": "metadata",
+                  "value": "{\"quality\": \"high\", \"lighting\": \"good\"}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/face-encoding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "face-encoding"]
+            }
+          }
+        },
+        {
+          "name": "Get Face Encoding Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/face-encoding/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "face-encoding", "status"]
+            }
+          }
+        },
+        {
+          "name": "Update Face Encoding",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": "path/to/new/face/photo.jpg"
+                },
+                {
+                  "key": "metadata",
+                  "value": "{\"quality\": \"high\", \"lighting\": \"excellent\"}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/face-encoding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "face-encoding"]
+            }
+          }
+        },
+        {
+          "name": "Delete Face Encoding",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/face-encoding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "face-encoding"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔒 Token Management",
+      "item": [
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{platformToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-token"]
+            }
+          }
+        },
+        {
+          "name": "Get Token Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{platformToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token-info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "token-info"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏥 Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Service Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "status"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

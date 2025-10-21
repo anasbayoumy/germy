@@ -9,7 +9,7 @@ export interface User {
     hireDate?: Date;
     salary?: number;
     profilePhotoUrl?: string;
-    role: 'platform_super_admin' | 'company_super_admin' | 'company_admin' | 'employee';
+    role: 'platform_admin' | 'company_super_admin' | 'admin' | 'user';
     isActive: boolean;
     isVerified: boolean;
     lastLogin?: Date;
