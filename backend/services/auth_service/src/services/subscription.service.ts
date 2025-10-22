@@ -105,19 +105,8 @@ export class SubscriptionService {
    */
   async checkEmployeeLimit(companyId: string): Promise<EmployeeLimitResult> {
     try {
-      // TEMPORARY FIX: Bypass subscription check
-      // const subscriptionResult = await this.getCompanySubscription(companyId);
-      // if (!subscriptionResult.success || !subscriptionResult.plan) {
-      //   return {
-      //     canAddEmployee: false,
-      //     message: 'No active subscription found',
-      //     currentCount: 0,
-      //     maxAllowed: 0,
-      //     upgradeRequired: true
-      //   };
-      // }
-
-      // TEMPORARY: Allow unlimited employees
+      // TEMPORARY: Bypass employee limit check
+      // TODO: Fix subscription service database queries
       return {
         canAddEmployee: true,
         message: 'Employee limit check bypassed',

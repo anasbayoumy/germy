@@ -1,7 +1,7 @@
 import { db } from '../config/database';
-import { companies, companyTrialHistory } from '../db/schema';
+import { companyTrialHistory } from '../db/schema';
 import { companySubscriptions, subscriptionPlans } from '../db/schema/platform';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 export interface TrialResult {
@@ -148,23 +148,16 @@ export class TrialService {
 
       logger.info(`Creating subscription record for company: ${companyId}`);
       // Create subscription with trial status
-      try {
-        const subscriptionResult = await db.insert(companySubscriptions).values({
-          companyId,
-          planId: basicPlan[0].id,
-          status: 'trial',
-          billingCycle: 'monthly',
-          currentPeriodStart: now,
-          currentPeriodEnd: trialEndsAt,
-          trialEndsAt
-        });
-        logger.info(`Subscription record created successfully:`, subscriptionResult);
-      } catch (subscriptionError) {
-        logger.error('Failed to create subscription record:', subscriptionError);
-        // If subscription creation fails, we should still return success for trial history
-        // but log the error for debugging
-        logger.warn('Trial history created but subscription record failed. This may cause validation issues.');
-      }
+      const subscriptionResult = await db.insert(companySubscriptions).values({
+        companyId,
+        planId: basicPlan[0].id,
+        status: 'trial',
+        billingCycle: 'monthly',
+        currentPeriodStart: now,
+        currentPeriodEnd: trialEndsAt,
+        trialEndsAt
+      });
+      logger.info(`Subscription record created successfully:`, subscriptionResult);
 
       logger.info(`Trial started successfully for company: ${companyId}`);
       
