@@ -169,3 +169,33 @@ export const userApprovalRequestsRelations = relations(userApprovalRequests, ({ 
     references: [users.id],
   }),
 }));
+
+// Company Trial History (Track trial usage per domain)
+export const companyTrialHistory = pgTable('company_trial_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  companyDomain: varchar('company_domain', { length: 255 }).notNull(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
+  trialStartedAt: timestamp('trial_started_at', { withTimezone: true }).notNull(),
+  trialEndedAt: timestamp('trial_ended_at', { withTimezone: true }),
+  trialStatus: varchar('trial_status', { length: 20 }).notNull().default('active'), // active, expired, converted
+  ipAddress: inet('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  domainUnique: unique().on(table.companyDomain),
+}));
+
+// Company Employee Count Tracking
+export const companyEmployeeCounts = pgTable('company_employee_counts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  totalEmployees: integer('total_employees').notNull().default(0),
+  activeEmployees: integer('active_employees').notNull().default(0),
+  adminsCount: integer('admins_count').notNull().default(0),
+  superAdminsCount: integer('super_admins_count').notNull().default(0),
+  lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  companyUnique: unique().on(table.companyId),
+}));

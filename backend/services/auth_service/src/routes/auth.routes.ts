@@ -56,7 +56,17 @@ router.post('/refresh', authenticateToken, authController.refreshToken.bind(auth
 //=======================================================================================================
 router.get('/me', authenticateToken, authController.getCurrentUser.bind(authController));
 
+// Company status route
+router.get('/status/:companyId', authController.getCompanyStatus.bind(authController));
+
 // Admin manual registration (for rejected users)
 router.post('/manual-register', authenticateToken, requireAdminOrSuperAdmin, validateRequest(manualRegisterUserSchema), authController.manualRegisterUser.bind(authController));
+
+// Trial and Subscription routes
+import trialRoutes from './trial.routes';
+import subscriptionRoutes from './subscription.routes';
+
+router.use('/trial', trialRoutes);
+router.use('/subscription', subscriptionRoutes);
 
 export default router;

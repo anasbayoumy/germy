@@ -72,6 +72,34 @@ CREATE TABLE company_subscriptions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Company Trial History (Track trial usage per domain)
+CREATE TABLE company_trial_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_domain VARCHAR(255) NOT NULL,
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+    trial_started_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    trial_ended_at TIMESTAMP WITH TIME ZONE,
+    trial_status VARCHAR(20) NOT NULL DEFAULT 'active', -- active, expired, converted
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(company_domain)
+);
+
+-- Company Employee Count Tracking
+CREATE TABLE company_employee_counts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    total_employees INTEGER NOT NULL DEFAULT 0,
+    active_employees INTEGER NOT NULL DEFAULT 0,
+    admins_count INTEGER NOT NULL DEFAULT 0,
+    super_admins_count INTEGER NOT NULL DEFAULT 0,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(company_id)
+);
+
 -- Company Settings
 CREATE TABLE company_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -159,6 +187,54 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(company_id, email),
     UNIQUE(company_id, employee_id)
+);
+
+-- User Preferences
+CREATE TABLE user_preferences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    theme VARCHAR(20) DEFAULT 'light', -- light, dark, auto
+    language VARCHAR(10) DEFAULT 'en',
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    date_format VARCHAR(20) DEFAULT 'MM/DD/YYYY',
+    time_format VARCHAR(10) DEFAULT '12h', -- 12h, 24h
+    notifications JSONB DEFAULT '{}', -- Email, push, SMS preferences
+    privacy JSONB DEFAULT '{}', -- Profile visibility settings
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id)
+);
+
+-- User Settings (Company-specific)
+CREATE TABLE user_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    work_hours_start VARCHAR(5) DEFAULT '09:00',
+    work_hours_end VARCHAR(5) DEFAULT '17:00',
+    work_days JSONB DEFAULT '[1,2,3,4,5]', -- Monday=1, Sunday=7
+    break_duration INTEGER DEFAULT 60, -- minutes
+    overtime_enabled BOOLEAN DEFAULT true,
+    remote_work_enabled BOOLEAN DEFAULT false,
+    attendance_reminders JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id, company_id)
+);
+
+-- User Activities (Audit Log)
+CREATE TABLE user_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL, -- profile_updated, team_joined, etc.
+    resource_type VARCHAR(100) NOT NULL, -- user, team, department
+    resource_id UUID,
+    old_values JSONB,
+    new_values JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
 -- Teams/Departments
@@ -635,9 +711,10 @@ CREATE POLICY users_company_isolation ON users
 
 -- Insert default subscription plans
 INSERT INTO subscription_plans (name, description, price_monthly, price_yearly, max_employees, features) VALUES
-('Starter', 'Perfect for small teams', 29, 300, 10, '["basic_attendance", "basic_reports"]'),
-('Professional', 'Ideal for growing companies', 79, 816, 50, '["advanced_attendance", "analytics", "integrations"]'),
-('Enterprise', 'For large organizations', 199, 2051, 500, '["all_features", "custom_integrations", "priority_support"]');
+('Basic', 'Perfect for small teams up to 10 employees', 29.99, 299.99, 10, '["basic_attendance", "basic_reports", "mobile_app"]'),
+('Professional', 'Ideal for growing companies up to 25 employees', 55.99, 559.99, 25, '["advanced_attendance", "analytics", "integrations", "custom_reports"]'),
+('Business', 'For established companies up to 50 employees', 79.99, 799.99, 50, '["all_features", "advanced_analytics", "api_access", "priority_support"]'),
+('Enterprise', 'Custom solutions for large organizations', 0, 0, 999999, '["all_features", "custom_integrations", "dedicated_support", "custom_pricing"]');
 
 -- Insert platform admin (you) - now in users table
 INSERT INTO users (email, password_hash, first_name, last_name, role, platform_panel_access, approval_status, is_active, is_verified) VALUES

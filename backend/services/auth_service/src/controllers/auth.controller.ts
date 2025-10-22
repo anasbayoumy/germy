@@ -570,4 +570,28 @@ export class AuthController {
       });
     }
   }
+
+  // Get company status (trial/subscription info)
+  async getCompanyStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { companyId } = req.params;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+        return;
+      }
+
+      const result = await this.authService.getCompanyStatus(companyId);
+      res.json(result);
+    } catch (error) {
+      logger.error('Get company status controller error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
 }

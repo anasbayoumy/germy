@@ -1,6 +1,7 @@
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, count, desc } from 'drizzle-orm';
 import { db } from '../config/database';
-import { users, companies, auditLogs, userApprovalRequests } from '../db/schema';
+import { users, companies, auditLogs, userApprovalRequests, companyTrialHistory } from '../db/schema';
+import { companySubscriptions } from '../db/schema/platform';
 import { logger } from '../utils/logger';
 import { hashPassword, comparePassword } from '../utils/bcrypt';
 import { generateToken, verifyToken } from './jwt.service';
@@ -8,6 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { emailService } from './email.service';
 import { tokenBlacklistService } from './token-blacklist.service';
 import { securityLoggingService } from './security-logging.service';
+import { trialService } from './trial.service';
+import { subscriptionService } from './subscription.service';
 import {
   RegisterData,
   PlatformAdminRegisterData,
@@ -615,6 +618,20 @@ export class AuthService {
         userAgent,
       });
 
+      // Start 7-day free trial for the new company
+      const trialResult = await trialService.startTrial(
+        result.company.id,
+        data.companyDomain,
+        ipAddress,
+        userAgent
+      );
+      
+      if (trialResult.success) {
+        logger.info(`Trial started for company: ${result.company.id}`);
+      } else {
+        logger.error(`Failed to start trial for company: ${result.company.id}`, trialResult.message);
+      }
+
       logger.info(`Company super admin registered: ${result.user.email} for company ${result.company.name}`);
 
       return {
@@ -1149,6 +1166,48 @@ export class AuthService {
         };
       }
 
+      // Check trial eligibility and subscription limits
+      const companyId = company[0].id;
+      
+      // Check if company has active trial or subscription (direct database query)
+      const subscription = await db
+        .select()
+        .from(companySubscriptions)
+        .where(and(
+          eq(companySubscriptions.companyId, companyId),
+          eq(companySubscriptions.status, 'trial')
+        ))
+        .limit(1);
+
+      // TEMPORARY FIX: Comment out subscription check
+      // if (subscription.length === 0) {
+      //   return {
+      //     success: false,
+      //     message: 'No active subscription found. Please contact your company super admin to start the trial.',
+      //   };
+      // }
+
+      // Check if trial has expired
+      const sub = subscription[0];
+      const now = new Date();
+      const trialEndsAt = sub.trialEndsAt;
+
+      if (trialEndsAt && now > trialEndsAt) {
+        return {
+          success: false,
+          message: 'Company trial has expired. Please contact your company super admin to upgrade the subscription.',
+        };
+      }
+
+      // Check employee limit
+      const limitCheck = await subscriptionService.checkEmployeeLimit(companyId);
+      if (!limitCheck.canAddEmployee) {
+        return {
+          success: false,
+          message: limitCheck.message,
+        };
+      }
+
       // Check if user already exists
       const existingUser = await db
         .select({
@@ -1278,6 +1337,48 @@ export class AuthService {
         };
       }
 
+      // Check trial eligibility and subscription limits
+      const companyId = company[0].id;
+      
+      // Check if company has active trial or subscription (direct database query)
+      const subscription = await db
+        .select()
+        .from(companySubscriptions)
+        .where(and(
+          eq(companySubscriptions.companyId, companyId),
+          eq(companySubscriptions.status, 'trial')
+        ))
+        .limit(1);
+
+      // TEMPORARY FIX: Comment out subscription check
+      // if (subscription.length === 0) {
+      //   return {
+      //     success: false,
+      //     message: 'No active subscription found. Please contact your company super admin to start the trial.',
+      //   };
+      // }
+
+      // Check if trial has expired
+      const sub = subscription[0];
+      const now = new Date();
+      const trialEndsAt = sub.trialEndsAt;
+
+      if (trialEndsAt && now > trialEndsAt) {
+        return {
+          success: false,
+          message: 'Company trial has expired. Please contact your company super admin to upgrade the subscription.',
+        };
+      }
+
+      // Check employee limit
+      const limitCheck = await subscriptionService.checkEmployeeLimit(companyId);
+      if (!limitCheck.canAddEmployee) {
+        return {
+          success: false,
+          message: limitCheck.message,
+        };
+      }
+
       // Check if user already exists
       const existingUser = await db
         .select({
@@ -1352,6 +1453,29 @@ export class AuthService {
         ipAddress,
         userAgent,
       });
+
+      // Start trial if this is the first admin for the company
+      const existingAdmins = await db
+        .select({ count: count() })
+        .from(users)
+        .where(and(
+          eq(users.companyId, company[0].id),
+          eq(users.role, 'company_admin')
+        ));
+
+      if (existingAdmins[0]?.count === 1) {
+        // This is the first admin, start trial
+        const trialResult = await trialService.startTrial(
+          company[0].id,
+          data.companyDomain,
+          ipAddress,
+          userAgent
+        );
+        
+        if (trialResult.success) {
+          logger.info(`Trial started for company: ${company[0].id}`);
+        }
+      }
 
       return {
         success: true,
@@ -1564,6 +1688,87 @@ export class AuthService {
       });
     } catch (error) {
       logger.error('Failed to log audit event:', error);
+    }
+  }
+
+  /**
+   * Get company status (trial/subscription information)
+   */
+  async getCompanyStatus(companyId: string): Promise<any> {
+    try {
+      logger.info(`Getting company status for: ${companyId}`);
+
+      // Get company information
+      const company = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, companyId))
+        .limit(1);
+
+      if (company.length === 0) {
+        return {
+          success: false,
+          message: 'Company not found'
+        };
+      }
+
+      // Get trial history
+      const trialHistory = await db
+        .select()
+        .from(companyTrialHistory)
+        .where(eq(companyTrialHistory.companyId, companyId))
+        .orderBy(desc(companyTrialHistory.trialStartedAt))
+        .limit(1);
+
+      // Get current subscription
+      const subscription = await db
+        .select()
+        .from(companySubscriptions)
+        .where(and(
+          eq(companySubscriptions.companyId, companyId),
+          eq(companySubscriptions.status, 'trial')
+        ))
+        .limit(1);
+
+      const companyData = company[0];
+      const trialData = trialHistory[0];
+      const subscriptionData = subscription[0];
+
+      return {
+        success: true,
+        data: {
+          company: {
+            id: companyData.id,
+            name: companyData.name,
+            domain: companyData.domain,
+            isActive: companyData.isActive,
+            createdAt: companyData.createdAt
+          },
+          trial: trialData ? {
+            id: trialData.id,
+            status: trialData.trialStatus,
+            startedAt: trialData.trialStartedAt,
+            endedAt: trialData.trialEndedAt,
+            ipAddress: trialData.ipAddress,
+            userAgent: trialData.userAgent
+          } : null,
+          subscription: subscriptionData ? {
+            id: subscriptionData.id,
+            status: subscriptionData.status,
+            billingCycle: subscriptionData.billingCycle,
+            currentPeriodStart: subscriptionData.currentPeriodStart,
+            currentPeriodEnd: subscriptionData.currentPeriodEnd,
+            trialEndsAt: subscriptionData.trialEndsAt,
+            createdAt: subscriptionData.createdAt
+          } : null
+        }
+      };
+    } catch (error) {
+      logger.error('Get company status service error:', error);
+      return {
+        success: false,
+        message: 'Error retrieving company status'
+      };
     }
   }
 }

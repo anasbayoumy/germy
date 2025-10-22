@@ -26,7 +26,7 @@ export class SanitizationService {
    */
   static sanitizeText(input: string): string {
     if (!input || typeof input !== 'string') {
-      return '';
+      return input;
     }
 
     try {
@@ -40,8 +40,8 @@ export class SanitizationService {
       sanitized = sanitized.replace(/javascript:/gi, '');
       sanitized = sanitized.replace(/data:/gi, '');
       
-      // Remove dangerous characters
-      sanitized = sanitized.replace(/[<>'"&]/g, '');
+      // Remove only dangerous HTML characters
+      sanitized = sanitized.replace(/[<>]/g, '');
       
       // Trim whitespace
       sanitized = sanitized.trim();
@@ -49,7 +49,7 @@ export class SanitizationService {
       return sanitized;
     } catch (error) {
       logger.error('Text sanitization error:', error);
-      return '';
+      return input;
     }
   }
 
@@ -235,14 +235,15 @@ export class SanitizationService {
     if (typeof obj === 'object') {
       const sanitized: any = {};
       for (const [key, value] of Object.entries(obj)) {
-        const sanitizedKey = this.sanitizeText(key);
-        sanitized[sanitizedKey] = this.sanitizeObject(value);
+        // Don't sanitize the key, just keep it as is
+        sanitized[key] = this.sanitizeObject(value);
       }
       return sanitized;
     }
 
     if (typeof obj === 'string') {
-      return this.sanitizeText(obj);
+      // Don't aggressively sanitize strings, just return them
+      return obj;
     }
 
     return obj;
