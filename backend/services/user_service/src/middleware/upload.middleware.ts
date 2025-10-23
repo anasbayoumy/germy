@@ -7,24 +7,25 @@ import { env } from '../config/env';
 // Configure storage
 const storage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb: Function) => {
-    cb(null, env.UPLOAD_PATH || './uploads');
+    const uploadPath = env.UPLOAD_PATH || './uploads';
+    // Ensure directory exists
+    if (!require('fs').existsSync(uploadPath)) {
+      require('fs').mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
   },
   filename: (req: Request, file: Express.Multer.File, cb: Function) => {
     // Generate unique filename
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    cb(null, `profile-${uniqueSuffix}${ext}`);
+    cb(null, `file-${uniqueSuffix}${ext}`);
   },
 });
 
-// File filter
+// File filter - Allow all file types
 const fileFilter = (req: Request, file: Express.Multer.File, cb: Function) => {
-  // Check file type
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed'), false);
-  }
+  // Allow all file types for general file uploads
+  cb(null, true);
 };
 
 // Configure multer
@@ -68,7 +69,7 @@ export function handleUploadError(error: any, req: Request, res: any, next: any)
   if (error.message === 'Only image files are allowed') {
     return res.status(400).json({
       success: false,
-      message: 'Only image files are allowed.',
+      message: 'File type not supported.',
     });
   }
 

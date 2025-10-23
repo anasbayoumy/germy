@@ -324,17 +324,23 @@ CREATE TABLE files (
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     original_name VARCHAR(255) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
-    file_path TEXT NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
     file_size INTEGER NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
-    category VARCHAR(100) DEFAULT 'uncategorized',
+    category VARCHAR(50) NOT NULL DEFAULT 'documents',
     description TEXT,
     tags JSONB DEFAULT '[]',
     is_public BOOLEAN NOT NULL DEFAULT false,
+    download_count INTEGER NOT NULL DEFAULT 0,
+    view_count INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_accessed_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-    metadata JSONB DEFAULT '{}'
+    metadata JSONB DEFAULT '{}',
+    UNIQUE(user_id, file_name)
 );
 
 -- File sharing table

@@ -4,7 +4,7 @@ export const uploadSchemas = {
   // File upload schemas
   uploadFile: z.object({
     body: z.object({
-      category: z.enum(['profile', 'document', 'avatar', 'attachment']),
+      category: z.string().min(1).max(50).default('documents'),
       description: z.string().max(500).optional(),
       isPublic: z.boolean().default(false),
       tags: z.array(z.string().max(50)).max(10).optional(),
@@ -13,7 +13,7 @@ export const uploadSchemas = {
 
   uploadMultipleFiles: z.object({
     body: z.object({
-      category: z.enum(['profile', 'document', 'avatar', 'attachment']),
+      category: z.string().min(1).max(50).default('documents'),
       description: z.string().max(500).optional(),
       isPublic: z.boolean().default(false),
       tags: z.array(z.string().max(50)).max(10).optional(),
@@ -24,7 +24,7 @@ export const uploadSchemas = {
   getFilesQuery: z.object({
     page: z.string().transform(Number).default('1'),
     limit: z.string().transform(Number).default('20'),
-    category: z.enum(['profile', 'document', 'avatar', 'attachment']).optional(),
+    category: z.string().optional(),
     userId: z.string().uuid('Invalid user ID format').optional(),
     isPublic: z.string().transform(val => val === 'true').optional(),
     tags: z.string().optional(), // Comma-separated tags
@@ -92,7 +92,7 @@ export const uploadSchemas = {
     }),
     query: z.object({
       period: z.enum(['7d', '30d', '90d', '1y']).default('30d'),
-      category: z.enum(['profile', 'document', 'avatar', 'attachment']).optional(),
+      category: z.string().optional(),
     }),
   }),
 
@@ -100,7 +100,7 @@ export const uploadSchemas = {
   exportFiles: z.object({
     query: z.object({
       format: z.enum(['csv', 'json']).default('csv'),
-      category: z.enum(['profile', 'document', 'avatar', 'attachment']).optional(),
+      category: z.string().optional(),
       userId: z.string().uuid('Invalid user ID format').optional(),
       dateFrom: z.string().datetime().optional(),
       dateTo: z.string().datetime().optional(),
@@ -111,7 +111,7 @@ export const uploadSchemas = {
   cleanupFiles: z.object({
     body: z.object({
       olderThan: z.string().datetime(),
-      category: z.enum(['profile', 'document', 'avatar', 'attachment']).optional(),
+      category: z.string().optional(),
       dryRun: z.boolean().default(true),
     }),
   }),

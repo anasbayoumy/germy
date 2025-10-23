@@ -32,20 +32,53 @@ export interface ShareFileData {
 }
 
 export class FileService {
-  private readonly uploadDir = process.env.UPLOAD_DIR || './uploads';
+  private readonly uploadDir = process.env.UPLOAD_PATH || './uploads';
   private readonly maxFileSize = 10 * 1024 * 1024; // 10MB
   private readonly allowedMimeTypes = [
+    // Images
     'image/jpeg',
+    'image/jpg',
     'image/png',
     'image/gif',
     'image/webp',
+    'image/svg+xml',
+    'image/bmp',
+    'image/tiff',
+    // Documents
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // Text files
     'text/plain',
     'text/csv',
+    'text/html',
+    'text/css',
+    'text/javascript',
+    'application/json',
+    'application/xml',
+    'text/xml',
+    // Archives
+    'application/zip',
+    'application/x-rar-compressed',
+    'application/x-7z-compressed',
+    'application/gzip',
+    'application/x-tar',
+    // Audio
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'audio/mp4',
+    // Video
+    'video/mp4',
+    'video/avi',
+    'video/quicktime',
+    'video/x-msvideo',
+    // Other common types
+    'application/octet-stream',
   ];
 
   async uploadFile(
@@ -80,26 +113,16 @@ export class FileService {
         };
       }
 
-      // Generate unique filename
-      const fileExtension = path.extname(file.originalname);
-      const uniqueFileName = `${uuidv4()}${fileExtension}`;
-      const filePath = path.join(this.uploadDir, category, uniqueFileName);
-
-      // Ensure directory exists
-      const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      // Move file to upload directory
-      fs.renameSync(file.path, filePath);
+      // File is already saved by multer, use the existing path
+      const filePath = file.path;
+      const uniqueFileName = path.basename(filePath);
 
       // Save file record to database
       const [savedFile] = await db
         .insert(files)
         .values({
           userId,
-          companyId,
+          companyId: companyId || null, // Allow null for platform admin
           originalName: file.originalname,
           fileName: uniqueFileName,
           filePath,
@@ -144,7 +167,7 @@ export class FileService {
     try {
       const { page = 1, limit = 20, category, isPublic, tags, dateFrom, dateTo } = options;
       const offset = (page - 1) * limit;
-      const conditions = [eq(files.companyId, companyId)];
+      const conditions = [];
 
       // Filter by user (unless platform admin)
       const user = await db
@@ -153,8 +176,16 @@ export class FileService {
         .where(eq(users.id, userId))
         .limit(1);
 
-      if (user[0]?.role !== 'platform_admin') {
+      if (user[0]?.role === 'platform_admin') {
+        // Platform admin can see all files
+        // No additional filters needed
+      } else {
+        // Regular users can only see their own files
         conditions.push(eq(files.userId, userId));
+        // Filter by company if companyId is provided
+        if (companyId) {
+          conditions.push(eq(files.companyId, companyId));
+        }
       }
 
       if (category) {
@@ -178,7 +209,7 @@ export class FileService {
         conditions.push(lte(files.uploadedAt, new Date(dateTo)));
       }
 
-      const filesList = await db
+      const query = db
         .select({
           id: files.id,
           originalName: files.originalName,
@@ -202,15 +233,22 @@ export class FileService {
         })
         .from(files)
         .innerJoin(users, eq(files.userId, users.id))
-        .where(and(...conditions))
         .orderBy(desc(files.uploadedAt))
         .limit(limit)
         .offset(offset);
 
-      const totalCount = await db
+      const countQuery = db
         .select({ count: count() })
-        .from(files)
-        .where(and(...conditions));
+        .from(files);
+
+      // Apply conditions if any exist
+      if (conditions.length > 0) {
+        query.where(and(...conditions));
+        countQuery.where(and(...conditions));
+      }
+
+      const filesList = await query;
+      const totalCount = await countQuery;
 
       return {
         success: true,

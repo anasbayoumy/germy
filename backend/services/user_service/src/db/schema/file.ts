@@ -6,7 +6,7 @@ import { users, companies } from './auth';
 export const files = pgTable('files', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
   originalName: varchar('original_name', { length: 255 }).notNull(),
   fileName: varchar('file_name', { length: 255 }).notNull(),
   filePath: varchar('file_path', { length: 500 }).notNull(),
