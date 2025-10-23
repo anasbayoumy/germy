@@ -1,6 +1,6 @@
 import { eq, and, like, desc, count, sql } from 'drizzle-orm';
 import { db } from '../config/database';
-import { departments, userDepartments, users, companies } from '../db/schema';
+import { departments, userDepartments, users } from '../db/schema';
 import { logger } from '../utils/logger';
 
 export interface CreateDepartmentData {
@@ -340,32 +340,6 @@ export class DepartmentService {
     }
   }
 
-  async getDepartmentUsers(departmentId: string, companyId: string) {
-    try {
-      const departmentUsers = await db
-        .select({
-          id: userDepartments.id,
-          userId: userDepartments.userId,
-          role: userDepartments.role,
-          joinedAt: userDepartments.joinedAt,
-          isActive: userDepartments.isActive,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-          position: users.position,
-          profilePhotoUrl: users.profilePhotoUrl,
-        })
-        .from(userDepartments)
-        .innerJoin(users, eq(userDepartments.userId, users.id))
-        .where(and(eq(userDepartments.departmentId, departmentId), eq(users.companyId, companyId)))
-        .orderBy(desc(userDepartments.joinedAt));
-
-      return departmentUsers;
-    } catch (error) {
-      logger.error('Get department users service error:', error);
-      throw error;
-    }
-  }
 
   async addDepartmentUser(departmentId: string, userData: AddDepartmentUserData, companyId: string, addedBy: string) {
     try {
@@ -505,49 +479,487 @@ export class DepartmentService {
     }
   }
 
-  async getDepartmentHierarchy(companyId: string) {
+
+  // Enhanced department service methods
+  async getDepartmentUsers(departmentId: string, companyId: string, page: number = 1, limit: number = 20, role?: string, isActive?: boolean) {
     try {
-      const allDepartments = await db
+      const offset = (page - 1) * limit;
+
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      const conditions = [eq(userDepartments.departmentId, departmentId)];
+      
+      if (role) {
+        conditions.push(eq(userDepartments.role, role));
+      }
+      
+      if (isActive !== undefined) {
+        conditions.push(eq(userDepartments.isActive, isActive));
+      }
+
+      const departmentUsers = await db
+        .select({
+          id: userDepartments.id,
+          userId: userDepartments.userId,
+          role: userDepartments.role,
+          joinedAt: userDepartments.joinedAt,
+          leftAt: userDepartments.leftAt,
+          isActive: userDepartments.isActive,
+          userDbId: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          position: users.position,
+          department: users.department,
+          profilePhotoUrl: users.profilePhotoUrl,
+        })
+        .from(userDepartments)
+        .innerJoin(users, eq(userDepartments.userId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(userDepartments.joinedAt))
+        .limit(limit)
+        .offset(offset);
+
+      const totalCount = await db
+        .select({ count: count() })
+        .from(userDepartments)
+        .where(and(...conditions));
+
+      return {
+        success: true,
+        data: {
+          users: departmentUsers,
+          pagination: {
+            page,
+            limit,
+            total: totalCount[0].count,
+            pages: Math.ceil(totalCount[0].count / limit),
+          },
+        },
+      };
+    } catch (error) {
+      logger.error('Get department users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async updateDepartmentUser(departmentId: string, userId: string, companyId: string, updateData: { role?: string; isActive?: boolean }, updatedBy: string) {
+    try {
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      // Check if membership exists
+      const membership = await db
+        .select()
+        .from(userDepartments)
+        .where(and(eq(userDepartments.departmentId, departmentId), eq(userDepartments.userId, userId)))
+        .limit(1);
+
+      if (membership.length === 0) {
+        return {
+          success: false,
+          message: 'User is not a member of this department',
+        };
+      }
+
+      const [updatedMembership] = await db
+        .update(userDepartments)
+        .set({
+          ...updateData,
+          ...(updateData.isActive === false && { leftAt: new Date() }),
+        })
+        .where(eq(userDepartments.id, membership[0].id))
+        .returning();
+
+      logger.info(`Department user updated: ${userId} in department ${departmentId} by ${updatedBy}`);
+
+      return {
+        success: true,
+        message: 'Department user updated successfully',
+        data: { membership: updatedMembership },
+      };
+    } catch (error) {
+      logger.error('Update department user service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkAddDepartmentUsers(departmentId: string, companyId: string, userIds: string[], addedBy: string, role: string = 'member') {
+    try {
+      if (userIds.length > 50) {
+        return {
+          success: false,
+          message: 'Maximum 50 users allowed per bulk operation',
+        };
+      }
+
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      // Check which users are already members
+      const existingMemberships = await db
+        .select({ userId: userDepartments.userId })
+        .from(userDepartments)
+        .where(and(eq(userDepartments.departmentId, departmentId), eq(userDepartments.isActive, true)));
+
+      const existingUserIds = new Set(existingMemberships.map(m => m.userId));
+      const newUserIds = userIds.filter(id => !existingUserIds.has(id));
+
+      if (newUserIds.length === 0) {
+        return {
+          success: false,
+          message: 'All users are already members of this department',
+        };
+      }
+
+      // Add new members
+      const newMemberships = newUserIds.map(userId => ({
+        userId,
+        departmentId,
+        role,
+        addedBy,
+      }));
+
+      const addedMemberships = await db
+        .insert(userDepartments)
+        .values(newMemberships)
+        .returning();
+
+      logger.info(`Bulk department users added: ${newUserIds.length} users to department ${departmentId} by ${addedBy}`);
+
+      return {
+        success: true,
+        message: `${addedMemberships.length} users added to department successfully`,
+        data: { memberships: addedMemberships },
+      };
+    } catch (error) {
+      logger.error('Bulk add department users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkRemoveDepartmentUsers(departmentId: string, companyId: string, userIds: string[], removedBy: string) {
+    try {
+      if (userIds.length > 50) {
+        return {
+          success: false,
+          message: 'Maximum 50 users allowed per bulk operation',
+        };
+      }
+
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      // Remove members
+      const [removedMemberships] = await db
+        .update(userDepartments)
+        .set({
+          isActive: false,
+          leftAt: new Date(),
+        })
+        .where(and(
+          eq(userDepartments.departmentId, departmentId),
+          sql`${userDepartments.userId} = ANY(${userIds})`
+        ))
+        .returning();
+
+      logger.info(`Bulk department users removed: ${userIds.length} users from department ${departmentId} by ${removedBy}`);
+
+      return {
+        success: true,
+        message: `${userIds.length} users removed from department successfully`,
+        data: { memberships: removedMemberships },
+      };
+    } catch (error) {
+      logger.error('Bulk remove department users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async getDepartmentHierarchy(departmentId: string, companyId: string, includeInactive: boolean = false, maxDepth: number = 5) {
+    try {
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      // Get department hierarchy recursively
+      const getHierarchy = async (deptId: string, depth: number = 0): Promise<any> => {
+        if (depth >= maxDepth) return null;
+
+        const conditions = [eq(departments.parentId, deptId)];
+        if (!includeInactive) {
+          conditions.push(eq(departments.isActive, true));
+        }
+
+        const subDepartments = await db
         .select({
           id: departments.id,
           name: departments.name,
           description: departments.description,
-          parentId: departments.parentId,
           managerId: departments.managerId,
-          managerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`.as('managerName'),
           color: departments.color,
           isActive: departments.isActive,
           memberCount: count(userDepartments.id).as('memberCount'),
         })
         .from(departments)
-        .leftJoin(users, eq(departments.managerId, users.id))
-        .leftJoin(userDepartments, and(eq(userDepartments.departmentId, departments.id), eq(userDepartments.isActive, true)))
-        .where(and(eq(departments.companyId, companyId), eq(departments.isActive, true)))
-        .groupBy(departments.id, users.firstName, users.lastName)
+          .leftJoin(userDepartments, eq(departments.id, userDepartments.departmentId))
+          .where(and(...conditions))
+          .groupBy(departments.id)
         .orderBy(departments.name);
 
-      // Build hierarchy tree
-      const departmentMap = new Map();
-      const rootDepartments: any[] = [];
-
-      // First pass: create map of all departments
-      allDepartments.forEach((dept: any) => {
-        departmentMap.set(dept.id, { ...dept, children: [] });
-      });
-
-      // Second pass: build hierarchy
-      allDepartments.forEach((dept: any) => {
-        if (dept.parentId && departmentMap.has(dept.parentId)) {
-          departmentMap.get(dept.parentId).children.push(departmentMap.get(dept.id));
-        } else {
-          rootDepartments.push(departmentMap.get(dept.id));
+        const hierarchy = [];
+        for (const subDept of subDepartments) {
+          const children = await getHierarchy(subDept.id, depth + 1);
+          hierarchy.push({
+            ...subDept,
+            children,
+          });
         }
-      });
 
-      return rootDepartments;
+        return hierarchy;
+      };
+
+      const hierarchy = await getHierarchy(departmentId);
+
+      return {
+        success: true,
+        data: {
+          departmentId,
+          hierarchy,
+          maxDepth,
+          includeInactive,
+        },
+      };
     } catch (error) {
       logger.error('Get department hierarchy service error:', error);
-      throw error;
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async getDepartmentAnalytics(departmentId: string, companyId: string, period: string = '30d', includeSubDepartments: boolean = true) {
+    try {
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (period) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // Get department statistics
+      const [deptStats] = await db
+        .select({
+          totalMembers: count(userDepartments.id),
+          activeMembers: sql<number>`COUNT(CASE WHEN ${userDepartments.isActive} = true THEN 1 END)`,
+          managers: sql<number>`COUNT(CASE WHEN ${userDepartments.role} = 'manager' THEN 1 END)`,
+          heads: sql<number>`COUNT(CASE WHEN ${userDepartments.role} = 'head' THEN 1 END)`,
+          leads: sql<number>`COUNT(CASE WHEN ${userDepartments.role} = 'lead' THEN 1 END)`,
+        })
+        .from(userDepartments)
+        .where(eq(userDepartments.departmentId, departmentId));
+
+      // Get recent activity
+      const recentActivity = await db
+        .select({
+          date: sql<string>`DATE(${userDepartments.joinedAt})`,
+          joined: sql<number>`COUNT(CASE WHEN ${userDepartments.joinedAt} >= ${startDate} THEN 1 END)`,
+          left: sql<number>`COUNT(CASE WHEN ${userDepartments.leftAt} >= ${startDate} THEN 1 END)`,
+        })
+        .from(userDepartments)
+        .where(eq(userDepartments.departmentId, departmentId))
+        .groupBy(sql`DATE(${userDepartments.joinedAt})`)
+        .orderBy(sql`DATE(${userDepartments.joinedAt})`);
+
+      return {
+        success: true,
+        data: {
+          departmentId,
+          period,
+          includeSubDepartments,
+          stats: deptStats,
+          recentActivity,
+          generatedAt: new Date(),
+        },
+      };
+    } catch (error) {
+      logger.error('Get department analytics service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async exportDepartmentUsers(departmentId: string, companyId: string, format: string = 'csv', includeInactive: boolean = false, includeSubDepartments: boolean = false) {
+    try {
+      // Verify department exists and belongs to company
+      const department = await db
+        .select()
+        .from(departments)
+        .where(and(eq(departments.id, departmentId), eq(departments.companyId, companyId)))
+        .limit(1);
+
+      if (department.length === 0) {
+        return {
+          success: false,
+          message: 'Department not found',
+        };
+      }
+
+      const conditions = [eq(userDepartments.departmentId, departmentId)];
+      
+      if (!includeInactive) {
+        conditions.push(eq(userDepartments.isActive, true));
+      }
+
+      const departmentUsers = await db
+        .select({
+          userId: userDepartments.userId,
+          role: userDepartments.role,
+          joinedAt: userDepartments.joinedAt,
+          leftAt: userDepartments.leftAt,
+          isActive: userDepartments.isActive,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          position: users.position,
+          department: users.department,
+        })
+        .from(userDepartments)
+        .innerJoin(users, eq(userDepartments.userId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(userDepartments.joinedAt));
+
+      if (format === 'csv') {
+        const csvData = [
+          'User ID,First Name,Last Name,Email,Position,Department,Role,Joined At,Left At,Is Active',
+          ...departmentUsers.map(u => 
+            `${u.userId},${u.firstName},${u.lastName},${u.email},${u.position || ''},${u.department || ''},${u.role},${u.joinedAt},${u.leftAt || ''},${u.isActive}`
+          ).join('\n')
+        ].join('\n');
+
+        return {
+          success: true,
+          data: {
+            format: 'csv',
+            content: csvData,
+            filename: `department-${departmentId}-users-${new Date().toISOString().split('T')[0]}.csv`,
+          },
+        };
+      } else {
+        return {
+          success: true,
+          data: {
+            format: 'json',
+            users: departmentUsers,
+            exportedAt: new Date(),
+            totalCount: departmentUsers.length,
+          },
+        };
+      }
+    } catch (error) {
+      logger.error('Export department users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
     }
   }
 }

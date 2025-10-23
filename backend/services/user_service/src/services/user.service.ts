@@ -1,8 +1,17 @@
-import { eq, and, or, like, desc, count, sql } from 'drizzle-orm';
+import { eq, and, or, desc, count, sql } from 'drizzle-orm';
 import { db } from '../config/database';
-import { users, companies, userPreferences, userSettings, userActivities } from '../db/schema';
+import { 
+  users, 
+  companies, 
+  userPreferences, 
+  userSettings, 
+  userActivities,
+  savedSearches,
+  userPermissions,
+  customReports,
+  reportHistory
+} from '../db/schema';
 import { logger } from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface GetUsersOptions {
   page: number;
@@ -45,17 +54,17 @@ export class UserService {
       }
       
       if (search) {
-        // Debug: Log the search query
-        console.log(`Search query: "${search}"`);
-        console.log(`Users table:`, users);
-        console.log(`Users email field:`, users.email);
-        
-        // Try a simpler approach - just search in email first
+        // Search across multiple fields
         conditions.push(
-          sql`${users.email} ILIKE ${'%' + search + '%'}`
+          or(
+            sql`${users.email} ILIKE ${'%' + search + '%'}`,
+            sql`${users.firstName} ILIKE ${'%' + search + '%'}`,
+            sql`${users.lastName} ILIKE ${'%' + search + '%'}`,
+            sql`${users.phone} ILIKE ${'%' + search + '%'}`,
+            sql`${users.position} ILIKE ${'%' + search + '%'}`,
+            sql`${users.department} ILIKE ${'%' + search + '%'}`
+          )
         );
-        
-        console.log(`Conditions after search:`, conditions);
       }
       
       if (role) {
@@ -115,7 +124,15 @@ export class UserService {
       };
     } catch (error) {
       logger.error('Get users service error:', error);
-      throw error;
+      return {
+        users: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          pages: 0,
+        },
+      };
     }
   }
 
@@ -192,8 +209,8 @@ export class UserService {
         };
       }
 
-      // Convert salary to string if it's a number and handle date fields
-      const updateDataWithStringSalary = {
+      // Handle date fields and ensure proper data types
+      const processedUpdateData = {
         ...updateData,
         salary: updateData.salary ? updateData.salary.toString() : undefined,
         hireDate: updateData.hireDate ? new Date(updateData.hireDate) : undefined,
@@ -202,7 +219,7 @@ export class UserService {
 
       const [updatedUser] = await db
         .update(users)
-        .set(updateDataWithStringSalary)
+        .set(processedUpdateData)
         .where(eq(users.id, userId))
         .returning();
 
@@ -747,6 +764,14 @@ export class UserService {
         };
       }
 
+      // Add limits for bulk operations
+      if (userIds.length > 100) {
+        return {
+          success: false,
+          message: 'Bulk operations are limited to 100 users at a time',
+        };
+      }
+
       const results = [];
       let successCount = 0;
       let errorCount = 0;
@@ -893,6 +918,14 @@ export class UserService {
         };
       }
 
+      // Add limits for import operations
+      if (usersData.length > 50) {
+        return {
+          success: false,
+          message: 'Import operations are limited to 50 users at a time',
+        };
+      }
+
       const results = [];
       let successCount = 0;
       let errorCount = 0;
@@ -927,12 +960,16 @@ export class UserService {
             continue;
           }
 
-          // Create user (without password - they'll need to set it)
+          // Create user with secure temporary password
+          const bcrypt = require('bcryptjs');
+          const tempPassword = require('node:crypto').randomBytes(16).toString('hex');
+          const hashedPassword = await bcrypt.hash(tempPassword, 12);
+          
           const [newUser] = await db
             .insert(users)
             .values({
               email: userData.email,
-              passwordHash: 'temp_password_import', // Should be changed on first login
+              passwordHash: hashedPassword,
               firstName: userData.firstName,
               lastName: userData.lastName,
               phone: userData.phone,
@@ -1009,10 +1046,1233 @@ export class UserService {
     userAgent?: string;
   }) {
     try {
-      // TODO: Implement user activity logging when user_activities table is created
-      logger.info(`User activity: ${data.action} by ${data.userId} for ${data.resourceType} ${data.resourceId || ''}`);
+      await db.insert(userActivities).values({
+        userId: data.userId,
+        companyId: data.companyId,
+        action: data.action,
+        resourceType: data.resourceType,
+        resourceId: data.resourceId,
+        oldValues: data.oldValues,
+        newValues: data.newValues,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+      });
+      
+      logger.info(`User activity logged: ${data.action} by ${data.userId} for ${data.resourceType} ${data.resourceId || ''}`);
     } catch (error) {
       logger.error('Failed to log user activity:', error);
+    }
+  }
+
+  // ===== NEW MISSING METHODS =====
+
+  // User CRUD Operations
+  async createUser(userData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions - only admins can create users
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to create users',
+        };
+      }
+
+      // Check if user already exists
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(and(
+          eq(users.email, userData.email),
+          eq(users.companyId, userData.companyId)
+        ))
+        .limit(1);
+
+      if (existingUser) {
+        return {
+          success: false,
+          message: 'User with this email already exists in the company',
+        };
+      }
+
+      // Create user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          ...userData,
+          hireDate: userData.hireDate ? new Date(userData.hireDate) : null,
+          salary: userData.salary ? userData.salary.toString() : undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      // Log the activity
+      await this.logUserActivity({
+        userId: requestingUserId,
+        companyId: requestingUserCompanyId,
+        action: 'user_created',
+        resourceType: 'user',
+        resourceId: newUser.id,
+        newValues: newUser,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User created: ${newUser.id} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'User created successfully',
+        data: { user: newUser },
+      };
+    } catch (error) {
+      logger.error('Create user service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async deleteUser(userId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions - only platform admins can delete users
+      if (requestingUserRole !== 'platform_admin') {
+        return {
+          success: false,
+          message: 'Only platform admins can delete users',
+        };
+      }
+
+      // Check if user exists
+      const existingUser = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+      if (!existingUser) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      // Delete user
+      await db.delete(users).where(eq(users.id, userId));
+
+      // Log the activity
+      await this.logUserActivity({
+        userId: requestingUserId,
+        companyId: requestingUserCompanyId,
+        action: 'user_deleted',
+        resourceType: 'user',
+        resourceId: userId,
+        oldValues: existingUser,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User deleted: ${userId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'User deleted successfully',
+      };
+    } catch (error) {
+      logger.error('Delete user service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async activateUser(userId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to activate users',
+        };
+      }
+
+      // Check if user exists
+      const existingUser = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+      if (!existingUser) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      if (existingUser.isActive) {
+        return {
+          success: false,
+          message: 'User is already active',
+        };
+      }
+
+      // Activate user
+      const [activatedUser] = await db
+        .update(users)
+        .set({
+          isActive: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      // Log the activity
+      await this.logUserActivity({
+        userId: requestingUserId,
+        companyId: requestingUserCompanyId,
+        action: 'user_activated',
+        resourceType: 'user',
+        resourceId: userId,
+        oldValues: { isActive: false },
+        newValues: { isActive: true },
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User activated: ${userId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'User activated successfully',
+        data: { user: activatedUser },
+      };
+    } catch (error) {
+      logger.error('Activate user service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Bulk Operations
+  async bulkCreateUsers(usersData: any[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions for bulk operations',
+        };
+      }
+
+      // Add limits for bulk operations
+      if (usersData.length > 50) {
+        return {
+          success: false,
+          message: 'Bulk operations are limited to 50 users at a time',
+        };
+      }
+
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userData of usersData) {
+        try {
+          const result = await this.createUser(userData, requestingUserId, requestingUserRole, requestingUserCompanyId, ipAddress, userAgent);
+          if (result.success) {
+            successCount++;
+            results.push({ userId: userData.email, status: 'success', data: result.data });
+          } else {
+            errorCount++;
+            results.push({ userId: userData.email, status: 'error', message: result.message });
+          }
+        } catch (error) {
+          errorCount++;
+          results.push({ userId: userData.email, status: 'error', message: 'Internal error' });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Bulk create completed',
+        data: {
+          total: usersData.length,
+          success: successCount,
+          errors: errorCount,
+          results,
+        },
+      };
+    } catch (error) {
+      logger.error('Bulk create users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkDeleteUsers(userIds: string[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions - only platform admins can delete users
+      if (requestingUserRole !== 'platform_admin') {
+        return {
+          success: false,
+          message: 'Only platform admins can delete users',
+        };
+      }
+
+      // Add limits for bulk operations
+      if (userIds.length > 100) {
+        return {
+          success: false,
+          message: 'Bulk operations are limited to 100 users at a time',
+        };
+      }
+
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of userIds) {
+        try {
+          const result = await this.deleteUser(userId, requestingUserId, requestingUserRole, requestingUserCompanyId, ipAddress, userAgent);
+          if (result.success) {
+            successCount++;
+            results.push({ userId, status: 'success' });
+          } else {
+            errorCount++;
+            results.push({ userId, status: 'error', message: result.message });
+          }
+        } catch (error) {
+          errorCount++;
+          results.push({ userId, status: 'error', message: 'Internal error' });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Bulk delete completed',
+        data: {
+          total: userIds.length,
+          success: successCount,
+          errors: errorCount,
+          results,
+        },
+      };
+    } catch (error) {
+      logger.error('Bulk delete users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkActivateUsers(userIds: string[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions for bulk operations',
+        };
+      }
+
+      // Add limits for bulk operations
+      if (userIds.length > 100) {
+        return {
+          success: false,
+          message: 'Bulk operations are limited to 100 users at a time',
+        };
+      }
+
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of userIds) {
+        try {
+          const result = await this.activateUser(userId, requestingUserId, requestingUserRole, requestingUserCompanyId, ipAddress, userAgent);
+          if (result.success) {
+            successCount++;
+            results.push({ userId, status: 'success' });
+          } else {
+            errorCount++;
+            results.push({ userId, status: 'error', message: result.message });
+          }
+        } catch (error) {
+          errorCount++;
+          results.push({ userId, status: 'error', message: 'Internal error' });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Bulk activate completed',
+        data: {
+          total: userIds.length,
+          success: successCount,
+          errors: errorCount,
+          results,
+        },
+      };
+    } catch (error) {
+      logger.error('Bulk activate users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkDeactivateUsers(userIds: string[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions for bulk operations',
+        };
+      }
+
+      // Add limits for bulk operations
+      if (userIds.length > 100) {
+        return {
+          success: false,
+          message: 'Bulk operations are limited to 100 users at a time',
+        };
+      }
+
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of userIds) {
+        try {
+          const result = await this.deactivateUser(userId, requestingUserId, requestingUserRole, requestingUserCompanyId, ipAddress, userAgent);
+          if (result.success) {
+            successCount++;
+            results.push({ userId, status: 'success' });
+          } else {
+            errorCount++;
+            results.push({ userId, status: 'error', message: result.message });
+          }
+        } catch (error) {
+          errorCount++;
+          results.push({ userId, status: 'error', message: 'Internal error' });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Bulk deactivate completed',
+        data: {
+          total: userIds.length,
+          success: successCount,
+          errors: errorCount,
+          results,
+        },
+      };
+    } catch (error) {
+      logger.error('Bulk deactivate users service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Activity Management
+  async createUserActivity(userId: string, activityData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
+        const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+        if (!user) {
+          return {
+            success: false,
+            message: 'User not found or insufficient permissions',
+          };
+        }
+      }
+
+      // Create activity
+      const [newActivity] = await db
+        .insert(userActivities)
+        .values({
+          userId,
+          companyId: requestingUserCompanyId,
+          action: activityData.action,
+          resourceType: activityData.resourceType,
+          resourceId: activityData.resourceId,
+          oldValues: activityData.metadata,
+          newValues: activityData.description,
+          ipAddress,
+          userAgent,
+        })
+        .returning();
+
+      // Log the activity
+      await this.logUserActivity({
+        userId: requestingUserId,
+        companyId: requestingUserCompanyId,
+        action: 'activity_created',
+        resourceType: 'user_activity',
+        resourceId: newActivity.id,
+        newValues: newActivity,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User activity created: ${newActivity.id} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Activity created successfully',
+        data: { activity: newActivity },
+      };
+    } catch (error) {
+      logger.error('Create user activity service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async updateUserActivity(userId: string, activityId: string, activityData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
+        const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+        if (!user) {
+          return {
+            success: false,
+            message: 'User not found or insufficient permissions',
+          };
+        }
+      }
+
+      // Check if activity exists
+      const [existingActivity] = await db
+        .select()
+        .from(userActivities)
+        .where(and(
+          eq(userActivities.id, activityId),
+          eq(userActivities.userId, userId)
+        ))
+        .limit(1);
+
+      if (!existingActivity) {
+        return {
+          success: false,
+          message: 'Activity not found',
+        };
+      }
+
+      // Update activity
+      const [updatedActivity] = await db
+        .update(userActivities)
+        .set({
+          action: activityData.action || existingActivity.action,
+          resourceType: activityData.resourceType || existingActivity.resourceType,
+          resourceId: activityData.resourceId || existingActivity.resourceId,
+          oldValues: activityData.metadata || existingActivity.oldValues,
+          newValues: activityData.description || existingActivity.newValues,
+        })
+        .where(eq(userActivities.id, activityId))
+        .returning();
+
+      // Log the activity
+      await this.logUserActivity({
+        userId: requestingUserId,
+        companyId: requestingUserCompanyId,
+        action: 'activity_updated',
+        resourceType: 'user_activity',
+        resourceId: activityId,
+        oldValues: existingActivity,
+        newValues: updatedActivity,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User activity updated: ${activityId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Activity updated successfully',
+        data: { activity: updatedActivity },
+      };
+    } catch (error) {
+      logger.error('Update user activity service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async deleteUserActivity(userId: string, activityId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string, ipAddress?: string, userAgent?: string) {
+    try {
+      // Check permissions
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
+        const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+        if (!user) {
+          return {
+            success: false,
+            message: 'User not found or insufficient permissions',
+          };
+        }
+      }
+
+      // Check if activity exists
+      const [existingActivity] = await db
+        .select()
+        .from(userActivities)
+        .where(and(
+          eq(userActivities.id, activityId),
+          eq(userActivities.userId, userId)
+        ))
+        .limit(1);
+
+      if (!existingActivity) {
+        return {
+          success: false,
+          message: 'Activity not found',
+        };
+      }
+
+      // Delete activity
+      await db.delete(userActivities).where(eq(userActivities.id, activityId));
+
+      // Log the activity
+      await this.logUserActivity({
+        userId: requestingUserId,
+        companyId: requestingUserCompanyId,
+        action: 'activity_deleted',
+        resourceType: 'user_activity',
+        resourceId: activityId,
+        oldValues: existingActivity,
+        ipAddress,
+        userAgent,
+      });
+
+      logger.info(`User activity deleted: ${activityId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Activity deleted successfully',
+      };
+    } catch (error) {
+      logger.error('Delete user activity service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async getUserActivityById(userId: string, activityId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check permissions
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
+        const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+        if (!user) {
+          return null;
+        }
+      }
+
+      const [activity] = await db
+        .select()
+        .from(userActivities)
+        .where(and(
+          eq(userActivities.id, activityId),
+          eq(userActivities.userId, userId)
+        ))
+        .limit(1);
+
+      return activity || null;
+    } catch (error) {
+      logger.error('Get user activity by ID service error:', error);
+      throw error;
+    }
+  }
+
+  // Advanced Search
+  async advancedSearch(searchData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      const { query, filters, sortBy, sortOrder, page, limit } = searchData;
+      const offset = (page - 1) * limit;
+
+      // Build conditions array
+      const conditions = [];
+      
+      if (requestingUserRole === 'platform_admin') {
+        // Platform admin can see all users
+        if (filters?.companyId) {
+          conditions.push(eq(users.companyId, filters.companyId));
+        }
+      } else {
+        // Company users can only see users from their company
+        conditions.push(eq(users.companyId, requestingUserCompanyId));
+      }
+      
+      if (query) {
+        conditions.push(
+          or(
+            sql`${users.email} ILIKE ${'%' + query + '%'}`,
+            sql`${users.firstName} ILIKE ${'%' + query + '%'}`,
+            sql`${users.lastName} ILIKE ${'%' + query + '%'}`,
+            sql`${users.phone} ILIKE ${'%' + query + '%'}`,
+            sql`${users.position} ILIKE ${'%' + query + '%'}`,
+            sql`${users.department} ILIKE ${'%' + query + '%'}`
+          )
+        );
+      }
+      
+      if (filters?.roles && filters.roles.length > 0) {
+        conditions.push(sql`${users.role} = ANY(${filters.roles})`);
+      }
+      
+      if (filters?.isActive !== undefined) {
+        conditions.push(eq(users.isActive, filters.isActive));
+      }
+      
+      if (filters?.departments && filters.departments.length > 0) {
+        conditions.push(sql`${users.department} = ANY(${filters.departments})`);
+      }
+      
+      if (filters?.positions && filters.positions.length > 0) {
+        conditions.push(sql`${users.position} = ANY(${filters.positions})`);
+      }
+      
+      if (filters?.dateRange?.start && filters?.dateRange?.end) {
+        conditions.push(
+          sql`${users.createdAt} BETWEEN ${filters.dateRange.start} AND ${filters.dateRange.end}`
+        );
+      }
+
+      // Build base query
+      const baseQuery = db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          phone: users.phone,
+          position: users.position,
+          department: users.department,
+          hireDate: users.hireDate,
+          salary: users.salary,
+          profilePhotoUrl: users.profilePhotoUrl,
+          role: users.role,
+          isActive: users.isActive,
+          isVerified: users.isVerified,
+          lastLogin: users.lastLogin,
+          companyId: users.companyId,
+          companyName: companies.name,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .innerJoin(companies, eq(users.companyId, companies.id))
+        .where(conditions.length > 0 ? and(...conditions) : sql`1=1`);
+
+      // Apply sorting
+      let sortedQuery;
+      if (sortBy === 'firstName') {
+        sortedQuery = sortOrder === 'asc' 
+          ? baseQuery.orderBy(users.firstName)
+          : baseQuery.orderBy(desc(users.firstName));
+      } else if (sortBy === 'lastName') {
+        sortedQuery = sortOrder === 'asc' 
+          ? baseQuery.orderBy(users.lastName)
+          : baseQuery.orderBy(desc(users.lastName));
+      } else if (sortBy === 'email') {
+        sortedQuery = sortOrder === 'asc' 
+          ? baseQuery.orderBy(users.email)
+          : baseQuery.orderBy(desc(users.email));
+      } else if (sortBy === 'lastLogin') {
+        sortedQuery = sortOrder === 'asc' 
+          ? baseQuery.orderBy(users.lastLogin)
+          : baseQuery.orderBy(desc(users.lastLogin));
+      } else {
+        sortedQuery = sortOrder === 'asc' 
+          ? baseQuery.orderBy(users.createdAt)
+          : baseQuery.orderBy(desc(users.createdAt));
+      }
+
+      const [usersData, totalCount] = await Promise.all([
+        sortedQuery.limit(limit).offset(offset),
+        db.select({ count: count() }).from(users).where(
+          requestingUserRole === 'platform_admin' 
+            ? (filters?.companyId ? eq(users.companyId, filters.companyId) : sql`1=1`)
+            : eq(users.companyId, requestingUserCompanyId)
+        ),
+      ]);
+
+      return {
+        users: usersData,
+        pagination: {
+          page,
+          limit,
+          total: totalCount[0].count,
+          pages: Math.ceil(totalCount[0].count / limit),
+        },
+      };
+    } catch (error) {
+      logger.error('Advanced search service error:', error);
+      throw error;
+    }
+  }
+
+  // Saved Searches
+  async saveSearch(searchData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      const [savedSearch] = await db
+        .insert(savedSearches)
+        .values({
+          userId: requestingUserId,
+          companyId: requestingUserCompanyId,
+          name: searchData.name,
+          description: searchData.description,
+          query: searchData.query,
+          filters: searchData.filters || {},
+          isPublic: searchData.isPublic || false,
+        })
+        .returning();
+
+      logger.info(`Search saved: ${savedSearch.id} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Search saved successfully',
+        data: { search: savedSearch },
+      };
+    } catch (error) {
+      logger.error('Save search service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async getSavedSearches(requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      const searches = await db
+        .select()
+        .from(savedSearches)
+        .where(
+          requestingUserRole === 'platform_admin'
+            ? sql`1=1`
+            : or(
+                eq(savedSearches.userId, requestingUserId),
+                and(
+                  eq(savedSearches.companyId, requestingUserCompanyId),
+                  eq(savedSearches.isPublic, true)
+                )
+              )
+        )
+        .orderBy(desc(savedSearches.createdAt));
+
+      return {
+        success: true,
+        data: { searches },
+      };
+    } catch (error) {
+      logger.error('Get saved searches service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async updateSavedSearch(searchId: string, searchData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check if search exists and user has permission
+      const [existingSearch] = await db
+        .select()
+        .from(savedSearches)
+        .where(and(
+          eq(savedSearches.id, searchId),
+          or(
+            eq(savedSearches.userId, requestingUserId),
+            and(
+              eq(savedSearches.companyId, requestingUserCompanyId),
+              eq(savedSearches.isPublic, true)
+            )
+          )
+        ))
+        .limit(1);
+
+      if (!existingSearch) {
+        return {
+          success: false,
+          message: 'Search not found or insufficient permissions',
+        };
+      }
+
+      const [updatedSearch] = await db
+        .update(savedSearches)
+        .set({
+          name: searchData.name || existingSearch.name,
+          description: searchData.description || existingSearch.description,
+          query: searchData.query || existingSearch.query,
+          filters: searchData.filters || existingSearch.filters,
+          isPublic: searchData.isPublic !== undefined ? searchData.isPublic : existingSearch.isPublic,
+          updatedAt: new Date(),
+        })
+        .where(eq(savedSearches.id, searchId))
+        .returning();
+
+      logger.info(`Search updated: ${searchId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Search updated successfully',
+        data: { search: updatedSearch },
+      };
+    } catch (error) {
+      logger.error('Update saved search service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async deleteSavedSearch(searchId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check if search exists and user has permission
+      const [existingSearch] = await db
+        .select()
+        .from(savedSearches)
+        .where(and(
+          eq(savedSearches.id, searchId),
+          or(
+            eq(savedSearches.userId, requestingUserId),
+            and(
+              eq(savedSearches.companyId, requestingUserCompanyId),
+              eq(savedSearches.isPublic, true)
+            )
+          )
+        ))
+        .limit(1);
+
+      if (!existingSearch) {
+        return {
+          success: false,
+          message: 'Search not found or insufficient permissions',
+        };
+      }
+
+      await db.delete(savedSearches).where(eq(savedSearches.id, searchId));
+
+      logger.info(`Search deleted: ${searchId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Search deleted successfully',
+      };
+    } catch (error) {
+      logger.error('Delete saved search service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Permission Management
+  async getUserPermissions(userId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check permissions
+      if (requestingUserRole !== 'platform_admin' && userId !== requestingUserId) {
+        const user = await this.getUserById(userId, requestingUserId, requestingUserRole, requestingUserCompanyId);
+        if (!user) {
+          return null;
+        }
+      }
+
+      const permissions = await db
+        .select()
+        .from(userPermissions)
+        .where(and(
+          eq(userPermissions.userId, userId),
+          eq(userPermissions.isActive, true)
+        ));
+
+      return permissions;
+    } catch (error) {
+      logger.error('Get user permissions service error:', error);
+      throw error;
+    }
+  }
+
+  async grantUserPermissions(userId: string, permissions: string[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check permissions - only admins can grant permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to grant permissions',
+        };
+      }
+
+      const results = [];
+      for (const permission of permissions) {
+        try {
+          const [newPermission] = await db
+            .insert(userPermissions)
+            .values({
+              userId,
+              companyId: requestingUserCompanyId,
+              permission,
+              grantedBy: requestingUserId,
+            })
+            .returning();
+          results.push(newPermission);
+        } catch (error) {
+          // Permission might already exist, skip
+        }
+      }
+
+      logger.info(`Permissions granted to user ${userId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Permissions granted successfully',
+        data: { permissions: results },
+      };
+    } catch (error) {
+      logger.error('Grant user permissions service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async revokeUserPermissions(userId: string, permissions: string[], requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check permissions - only admins can revoke permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to revoke permissions',
+        };
+      }
+
+      await db
+        .update(userPermissions)
+        .set({ isActive: false })
+        .where(and(
+          eq(userPermissions.userId, userId),
+          sql`${userPermissions.permission} = ANY(${permissions})`
+        ));
+
+      logger.info(`Permissions revoked from user ${userId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Permissions revoked successfully',
+      };
+    } catch (error) {
+      logger.error('Revoke user permissions service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Custom Reports
+  async createCustomReport(reportData: any, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      const [customReport] = await db
+        .insert(customReports)
+        .values({
+          userId: requestingUserId,
+          companyId: requestingUserCompanyId,
+          name: reportData.name,
+          description: reportData.description,
+          type: reportData.type,
+          filters: reportData.filters || {},
+          dateRange: reportData.dateRange,
+          format: reportData.format || 'json',
+          schedule: reportData.schedule || {},
+        })
+        .returning();
+
+      logger.info(`Custom report created: ${customReport.id} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Custom report created successfully',
+        data: { report: customReport },
+      };
+    } catch (error) {
+      logger.error('Create custom report service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async getCustomReports(requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      const reports = await db
+        .select()
+        .from(customReports)
+        .where(
+          requestingUserRole === 'platform_admin'
+            ? sql`1=1`
+            : eq(customReports.companyId, requestingUserCompanyId)
+        )
+        .orderBy(desc(customReports.createdAt));
+
+      return {
+        success: true,
+        data: { reports },
+      };
+    } catch (error) {
+      logger.error('Get custom reports service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async generateReport(reportId: string, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Get report configuration
+      const [report] = await db
+        .select()
+        .from(customReports)
+        .where(and(
+          eq(customReports.id, reportId),
+          eq(customReports.isActive, true)
+        ))
+        .limit(1);
+
+      if (!report) {
+        return {
+          success: false,
+          message: 'Report not found or inactive',
+        };
+      }
+
+      // Create report history entry
+      const [reportHistoryEntry] = await db
+        .insert(reportHistory)
+        .values({
+          reportId,
+          userId: requestingUserId,
+          companyId: requestingUserCompanyId,
+          status: 'pending',
+        })
+        .returning();
+
+      // Update last generated timestamp
+      await db
+        .update(customReports)
+        .set({ lastGenerated: new Date() })
+        .where(eq(customReports.id, reportId));
+
+      logger.info(`Report generation started: ${reportId} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Report generation started',
+        data: { reportHistory: reportHistoryEntry },
+      };
+    } catch (error) {
+      logger.error('Generate report service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Export by Role
+  async exportUsersByRole(role: string, format: string, includeInactive: boolean, requestingUserId: string, requestingUserRole: string, requestingUserCompanyId: string) {
+    try {
+      // Check permissions
+      if (!['platform_admin', 'company_super_admin', 'company_admin'].includes(requestingUserRole)) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to export users',
+        };
+      }
+
+      // Build conditions
+      const conditions = [];
+      
+      if (requestingUserRole === 'platform_admin') {
+        // Platform admin can export any role
+        conditions.push(eq(users.role, role));
+      } else {
+        // Company users can only export from their company
+        conditions.push(eq(users.companyId, requestingUserCompanyId));
+        conditions.push(eq(users.role, role));
+      }
+      
+      if (!includeInactive) {
+        conditions.push(eq(users.isActive, true));
+      }
+
+      const usersData = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          phone: users.phone,
+          position: users.position,
+          department: users.department,
+          hireDate: users.hireDate,
+          salary: users.salary,
+          role: users.role,
+          isActive: users.isActive,
+          isVerified: users.isVerified,
+          lastLogin: users.lastLogin,
+          companyName: companies.name,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .innerJoin(companies, eq(users.companyId, companies.id))
+        .where(conditions.length > 0 ? and(...conditions) : sql`1=1`)
+        .orderBy(desc(users.createdAt));
+
+      // Generate export data based on format
+      let exportData;
+      if (format === 'csv') {
+        const csvHeader = 'ID,Email,First Name,Last Name,Phone,Position,Department,Hire Date,Salary,Role,Active,Verified,Last Login,Company,Created At\n';
+        const csvRows = usersData.map(user => 
+          `${user.id},${user.email},${user.firstName},${user.lastName},${user.phone || ''},${user.position || ''},${user.department || ''},${user.hireDate || ''},${user.salary || ''},${user.role},${user.isActive},${user.isVerified},${user.lastLogin || ''},${user.companyName},${user.createdAt}`
+        ).join('\n');
+        exportData = csvHeader + csvRows;
+      } else {
+        exportData = usersData;
+      }
+
+      logger.info(`Users exported by role ${role} by ${requestingUserId}`);
+
+      return {
+        success: true,
+        message: 'Users exported successfully',
+        data: {
+          format,
+          count: usersData.length,
+          exportData,
+        },
+      };
+    } catch (error) {
+      logger.error('Export users by role service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
     }
   }
 }

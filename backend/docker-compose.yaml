@@ -18,6 +18,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   auth-service:
     build: ./services/auth_service
     ports:
@@ -48,8 +61,14 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
       - NODE_ENV=development
       - PORT=3003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - JOB_QUEUE_REDIS_URL=redis://redis:6379
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./services/user_service:/app
@@ -121,3 +140,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

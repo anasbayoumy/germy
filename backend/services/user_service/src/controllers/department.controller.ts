@@ -210,8 +210,14 @@ export class DepartmentController {
   async getDepartmentHierarchy(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { companyId } = req.user!;
+      const { departmentId, includeInactive, maxDepth } = req.query;
 
-      const hierarchy = await this.departmentService.getDepartmentHierarchy(companyId);
+      const hierarchy = await this.departmentService.getDepartmentHierarchy(
+        departmentId as string || '',
+        companyId,
+        includeInactive === 'true',
+        maxDepth ? Number.parseInt(maxDepth as string) : 5
+      );
 
       res.json({
         success: true,

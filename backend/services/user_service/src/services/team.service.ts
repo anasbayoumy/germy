@@ -1,6 +1,6 @@
 import { eq, and, like, desc, count, sql } from 'drizzle-orm';
 import { db } from '../config/database';
-import { teams, userTeams, users, companies } from '../db/schema';
+import { teams, userTeams, users } from '../db/schema';
 import { logger } from '../utils/logger';
 
 export interface CreateTeamData {
@@ -279,32 +279,6 @@ export class TeamService {
     }
   }
 
-  async getTeamMembers(teamId: string, companyId: string) {
-    try {
-      const members = await db
-        .select({
-          id: userTeams.id,
-          userId: userTeams.userId,
-          roleInTeam: userTeams.roleInTeam,
-          joinedAt: userTeams.joinedAt,
-          isActive: userTeams.isActive,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-          position: users.position,
-          profilePhotoUrl: users.profilePhotoUrl,
-        })
-        .from(userTeams)
-        .innerJoin(users, eq(userTeams.userId, users.id))
-        .where(and(eq(userTeams.teamId, teamId), eq(users.companyId, companyId)))
-        .orderBy(desc(userTeams.joinedAt));
-
-      return members;
-    } catch (error) {
-      logger.error('Get team members service error:', error);
-      throw error;
-    }
-  }
 
   async addTeamMember(teamId: string, memberData: AddTeamMemberData, companyId: string, addedBy: string) {
     try {
@@ -437,6 +411,418 @@ export class TeamService {
       };
     } catch (error) {
       logger.error('Remove team member service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // Enhanced team service methods
+  async getTeamMembers(teamId: string, companyId: string, page: number = 1, limit: number = 20, role?: string, isActive?: boolean) {
+    try {
+      const offset = (page - 1) * limit;
+
+      // Verify team exists and belongs to company
+      const team = await db
+        .select()
+        .from(teams)
+        .where(and(eq(teams.id, teamId), eq(teams.companyId, companyId)))
+        .limit(1);
+
+      if (team.length === 0) {
+        return {
+          success: false,
+          message: 'Team not found',
+        };
+      }
+
+      const conditions = [eq(userTeams.teamId, teamId)];
+      
+      if (role) {
+        conditions.push(eq(userTeams.roleInTeam, role));
+      }
+      
+      if (isActive !== undefined) {
+        conditions.push(eq(userTeams.isActive, isActive));
+      }
+
+      const members = await db
+        .select({
+          id: userTeams.id,
+          userId: userTeams.userId,
+          roleInTeam: userTeams.roleInTeam,
+          joinedAt: userTeams.joinedAt,
+          leftAt: userTeams.leftAt,
+          isActive: userTeams.isActive,
+          user: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+            position: users.position,
+            department: users.department,
+            profilePhotoUrl: users.profilePhotoUrl,
+          },
+        })
+        .from(userTeams)
+        .innerJoin(users, eq(userTeams.userId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(userTeams.joinedAt))
+        .limit(limit)
+        .offset(offset);
+
+      const totalCount = await db
+        .select({ count: count() })
+        .from(userTeams)
+        .where(and(...conditions));
+
+      return {
+        success: true,
+        data: {
+          members,
+          pagination: {
+            page,
+            limit,
+            total: totalCount[0].count,
+            pages: Math.ceil(totalCount[0].count / limit),
+          },
+        },
+      };
+    } catch (error) {
+      logger.error('Get team members service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async updateTeamMember(teamId: string, userId: string, companyId: string, updateData: { roleInTeam?: string; isActive?: boolean }, updatedBy: string) {
+    try {
+      // Verify team exists and belongs to company
+      const team = await db
+        .select()
+        .from(teams)
+        .where(and(eq(teams.id, teamId), eq(teams.companyId, companyId)))
+        .limit(1);
+
+      if (team.length === 0) {
+        return {
+          success: false,
+          message: 'Team not found',
+        };
+      }
+
+      // Check if membership exists
+      const membership = await db
+        .select()
+        .from(userTeams)
+        .where(and(eq(userTeams.teamId, teamId), eq(userTeams.userId, userId)))
+        .limit(1);
+
+      if (membership.length === 0) {
+        return {
+          success: false,
+          message: 'User is not a member of this team',
+        };
+      }
+
+      const [updatedMembership] = await db
+        .update(userTeams)
+        .set({
+          ...updateData,
+          ...(updateData.isActive === false && { leftAt: new Date() }),
+        })
+        .where(eq(userTeams.id, membership[0].id))
+        .returning();
+
+      logger.info(`Team member updated: ${userId} in team ${teamId} by ${updatedBy}`);
+
+      return {
+        success: true,
+        message: 'Team member updated successfully',
+        data: { membership: updatedMembership },
+      };
+    } catch (error) {
+      logger.error('Update team member service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkAddTeamMembers(teamId: string, companyId: string, userIds: string[], addedBy: string, roleInTeam: string = 'member') {
+    try {
+      if (userIds.length > 50) {
+        return {
+          success: false,
+          message: 'Maximum 50 users allowed per bulk operation',
+        };
+      }
+
+      // Verify team exists and belongs to company
+      const team = await db
+        .select()
+        .from(teams)
+        .where(and(eq(teams.id, teamId), eq(teams.companyId, companyId)))
+        .limit(1);
+
+      if (team.length === 0) {
+        return {
+          success: false,
+          message: 'Team not found',
+        };
+      }
+
+      // Check which users are already members
+      const existingMemberships = await db
+        .select({ userId: userTeams.userId })
+        .from(userTeams)
+        .where(and(eq(userTeams.teamId, teamId), eq(userTeams.isActive, true)));
+
+      const existingUserIds = new Set(existingMemberships.map(m => m.userId));
+      const newUserIds = userIds.filter(id => !existingUserIds.has(id));
+
+      if (newUserIds.length === 0) {
+        return {
+          success: false,
+          message: 'All users are already members of this team',
+        };
+      }
+
+      // Add new members
+      const newMemberships = newUserIds.map(userId => ({
+        userId,
+        teamId,
+        roleInTeam,
+        addedBy,
+      }));
+
+      const addedMemberships = await db
+        .insert(userTeams)
+        .values(newMemberships)
+        .returning();
+
+      logger.info(`Bulk team members added: ${newUserIds.length} users to team ${teamId} by ${addedBy}`);
+
+      return {
+        success: true,
+        message: `${addedMemberships.length} users added to team successfully`,
+        data: { memberships: addedMemberships },
+      };
+    } catch (error) {
+      logger.error('Bulk add team members service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async bulkRemoveTeamMembers(teamId: string, companyId: string, userIds: string[], removedBy: string) {
+    try {
+      if (userIds.length > 50) {
+        return {
+          success: false,
+          message: 'Maximum 50 users allowed per bulk operation',
+        };
+      }
+
+      // Verify team exists and belongs to company
+      const team = await db
+        .select()
+        .from(teams)
+        .where(and(eq(teams.id, teamId), eq(teams.companyId, companyId)))
+        .limit(1);
+
+      if (team.length === 0) {
+        return {
+          success: false,
+          message: 'Team not found',
+        };
+      }
+
+      // Remove members
+      const [removedMemberships] = await db
+        .update(userTeams)
+        .set({
+          isActive: false,
+          leftAt: new Date(),
+        })
+        .where(and(
+          eq(userTeams.teamId, teamId),
+          sql`${userTeams.userId} = ANY(${userIds})`
+        ))
+        .returning();
+
+      logger.info(`Bulk team members removed: ${userIds.length} users from team ${teamId} by ${removedBy}`);
+
+      return {
+        success: true,
+        message: `${userIds.length} users removed from team successfully`,
+        data: { memberships: removedMemberships },
+      };
+    } catch (error) {
+      logger.error('Bulk remove team members service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async getTeamAnalytics(teamId: string, companyId: string, period: string = '30d') {
+    try {
+      // Verify team exists and belongs to company
+      const team = await db
+        .select()
+        .from(teams)
+        .where(and(eq(teams.id, teamId), eq(teams.companyId, companyId)))
+        .limit(1);
+
+      if (team.length === 0) {
+        return {
+          success: false,
+          message: 'Team not found',
+        };
+      }
+
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (period) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // Get team statistics
+      const [teamStats] = await db
+        .select({
+          totalMembers: count(userTeams.id),
+          activeMembers: sql<number>`COUNT(CASE WHEN ${userTeams.isActive} = true THEN 1 END)`,
+          managers: sql<number>`COUNT(CASE WHEN ${userTeams.roleInTeam} = 'manager' THEN 1 END)`,
+          leads: sql<number>`COUNT(CASE WHEN ${userTeams.roleInTeam} = 'lead' THEN 1 END)`,
+        })
+        .from(userTeams)
+        .where(eq(userTeams.teamId, teamId));
+
+      // Get recent activity (last 30 days)
+      const recentActivity = await db
+        .select({
+          date: sql<string>`DATE(${userTeams.joinedAt})`,
+          joined: sql<number>`COUNT(CASE WHEN ${userTeams.joinedAt} >= ${startDate} THEN 1 END)`,
+          left: sql<number>`COUNT(CASE WHEN ${userTeams.leftAt} >= ${startDate} THEN 1 END)`,
+        })
+        .from(userTeams)
+        .where(eq(userTeams.teamId, teamId))
+        .groupBy(sql`DATE(${userTeams.joinedAt})`)
+        .orderBy(sql`DATE(${userTeams.joinedAt})`);
+
+      return {
+        success: true,
+        data: {
+          teamId,
+          period,
+          stats: teamStats,
+          recentActivity,
+          generatedAt: new Date(),
+        },
+      };
+    } catch (error) {
+      logger.error('Get team analytics service error:', error);
+      return {
+        success: false,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  async exportTeamMembers(teamId: string, companyId: string, format: string = 'csv', includeInactive: boolean = false) {
+    try {
+      // Verify team exists and belongs to company
+      const team = await db
+        .select()
+        .from(teams)
+        .where(and(eq(teams.id, teamId), eq(teams.companyId, companyId)))
+        .limit(1);
+
+      if (team.length === 0) {
+        return {
+          success: false,
+          message: 'Team not found',
+        };
+      }
+
+      const conditions = [eq(userTeams.teamId, teamId)];
+      
+      if (!includeInactive) {
+        conditions.push(eq(userTeams.isActive, true));
+      }
+
+      const members = await db
+        .select({
+          userId: userTeams.userId,
+          roleInTeam: userTeams.roleInTeam,
+          joinedAt: userTeams.joinedAt,
+          leftAt: userTeams.leftAt,
+          isActive: userTeams.isActive,
+          user: {
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+            position: users.position,
+            department: users.department,
+          },
+        })
+        .from(userTeams)
+        .innerJoin(users, eq(userTeams.userId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(userTeams.joinedAt));
+
+      if (format === 'csv') {
+        const csvData = [
+          'User ID,First Name,Last Name,Email,Position,Department,Role in Team,Joined At,Left At,Is Active',
+          ...members.map(m => 
+            `${m.userId},${m.user.firstName},${m.user.lastName},${m.user.email},${m.user.position || ''},${m.user.department || ''},${m.roleInTeam},${m.joinedAt},${m.leftAt || ''},${m.isActive}`
+          ).join('\n')
+        ].join('\n');
+
+        return {
+          success: true,
+          data: {
+            format: 'csv',
+            content: csvData,
+            filename: `team-${teamId}-members-${new Date().toISOString().split('T')[0]}.csv`,
+          },
+        };
+      } else {
+        return {
+          success: true,
+          data: {
+            format: 'json',
+            members,
+            exportedAt: new Date(),
+            totalCount: members.length,
+          },
+        };
+      }
+    } catch (error) {
+      logger.error('Export team members service error:', error);
       return {
         success: false,
         message: 'Internal server error',

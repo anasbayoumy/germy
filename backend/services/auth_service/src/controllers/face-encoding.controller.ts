@@ -87,6 +87,7 @@ export class FaceEncodingController {
           requesterId,
           requesterRole,
           companyId,
+          processingTime,
           ipAddress,
           userAgent
         );
@@ -124,7 +125,7 @@ export class FaceEncodingController {
           }
         });
 
-      } catch (aiError) {
+      } catch (aiError: any) {
         logger.error('AI service communication error:', aiError);
         
         if (axios.isAxiosError(aiError)) {
@@ -186,7 +187,7 @@ export class FaceEncodingController {
   async updateFaceEncoding(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
-      const { encodingData, qualityScore } = req.body;
+      const { encodingData, qualityScore, processingTime } = req.body;
       const { userId: requesterId, role: requesterRole, companyId } = req.user!;
       const ipAddress = req.ip;
       const userAgent = req.get('User-Agent');
@@ -198,6 +199,7 @@ export class FaceEncodingController {
         requesterId,
         requesterRole,
         companyId,
+        processingTime,
         ipAddress,
         userAgent
       );

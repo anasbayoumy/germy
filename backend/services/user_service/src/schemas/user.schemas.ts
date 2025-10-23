@@ -113,4 +113,188 @@ export const userSchemas = {
       })).min(1, 'At least one user is required'),
     }),
   }),
+
+  // New schemas for missing endpoints
+  createUser: z.object({
+    body: z.object({
+      email: z.string().email('Invalid email format'),
+      firstName: z.string().min(1, 'First name is required').max(100),
+      lastName: z.string().min(1, 'Last name is required').max(100),
+      phone: z.string().max(20).optional(),
+      position: z.string().max(100).optional(),
+      department: z.string().max(100).optional(),
+      hireDate: z.string().datetime().optional(),
+      salary: z.number().min(0).optional(),
+      role: z.enum(['user', 'company_admin', 'company_super_admin']).default('user'),
+      isActive: z.boolean().default(true),
+      companyId: z.string().uuid('Invalid company ID format'),
+    }),
+  }),
+
+  bulkCreateUsers: z.object({
+    body: z.object({
+      usersData: z.array(z.object({
+        email: z.string().email('Invalid email format'),
+        firstName: z.string().min(1, 'First name is required').max(100),
+        lastName: z.string().min(1, 'Last name is required').max(100),
+        phone: z.string().max(20).optional(),
+        position: z.string().max(100).optional(),
+        department: z.string().max(100).optional(),
+        hireDate: z.string().datetime().optional(),
+        salary: z.number().min(0).optional(),
+        role: z.enum(['user', 'company_admin', 'company_super_admin']).default('user'),
+        isActive: z.boolean().default(true),
+        companyId: z.string().uuid('Invalid company ID format'),
+      })).min(1, 'At least one user is required').max(50, 'Maximum 50 users allowed'),
+    }),
+  }),
+
+  bulkDeleteUsers: z.object({
+    body: z.object({
+      userIds: z.array(z.string().uuid('Invalid user ID format')).min(1, 'At least one user ID is required').max(100, 'Maximum 100 users allowed'),
+    }),
+  }),
+
+  bulkActivateUsers: z.object({
+    body: z.object({
+      userIds: z.array(z.string().uuid('Invalid user ID format')).min(1, 'At least one user ID is required').max(100, 'Maximum 100 users allowed'),
+    }),
+  }),
+
+  bulkDeactivateUsers: z.object({
+    body: z.object({
+      userIds: z.array(z.string().uuid('Invalid user ID format')).min(1, 'At least one user ID is required').max(100, 'Maximum 100 users allowed'),
+    }),
+  }),
+
+  createUserActivity: z.object({
+    body: z.object({
+      action: z.string().min(1, 'Action is required').max(100),
+      resourceType: z.string().min(1, 'Resource type is required').max(100),
+      resourceId: z.string().uuid('Invalid resource ID format').optional(),
+      description: z.string().max(500).optional(),
+      metadata: z.record(z.any()).optional(),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid user ID format'),
+    }),
+  }),
+
+  updateUserActivity: z.object({
+    body: z.object({
+      action: z.string().min(1, 'Action is required').max(100).optional(),
+      resourceType: z.string().min(1, 'Resource type is required').max(100).optional(),
+      resourceId: z.string().uuid('Invalid resource ID format').optional(),
+      description: z.string().max(500).optional(),
+      metadata: z.record(z.any()).optional(),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid user ID format'),
+      activityId: z.string().uuid('Invalid activity ID format'),
+    }),
+  }),
+
+  activityIdParams: z.object({
+    id: z.string().uuid('Invalid user ID format'),
+    activityId: z.string().uuid('Invalid activity ID format'),
+  }),
+
+  advancedSearch: z.object({
+    body: z.object({
+      query: z.string().min(1, 'Search query is required'),
+      filters: z.object({
+        roles: z.array(z.string()).optional(),
+        isActive: z.boolean().optional(),
+        companyId: z.string().uuid().optional(),
+        dateRange: z.object({
+          start: z.string().datetime().optional(),
+          end: z.string().datetime().optional(),
+        }).optional(),
+        departments: z.array(z.string()).optional(),
+        positions: z.array(z.string()).optional(),
+      }).optional(),
+      sortBy: z.enum(['firstName', 'lastName', 'email', 'createdAt', 'lastLogin']).default('createdAt'),
+      sortOrder: z.enum(['asc', 'desc']).default('desc'),
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(20),
+    }),
+  }),
+
+  saveSearch: z.object({
+    body: z.object({
+      name: z.string().min(1, 'Search name is required').max(100),
+      description: z.string().max(500).optional(),
+      query: z.string().min(1, 'Search query is required'),
+      filters: z.record(z.any()).optional(),
+      isPublic: z.boolean().default(false),
+    }),
+  }),
+
+  updateSearch: z.object({
+    body: z.object({
+      name: z.string().min(1, 'Search name is required').max(100).optional(),
+      description: z.string().max(500).optional(),
+      query: z.string().min(1, 'Search query is required').optional(),
+      filters: z.record(z.any()).optional(),
+      isPublic: z.boolean().optional(),
+    }),
+    params: z.object({
+      searchId: z.string().uuid('Invalid search ID format'),
+    }),
+  }),
+
+  searchIdParams: z.object({
+    searchId: z.string().uuid('Invalid search ID format'),
+  }),
+
+  userPermissions: z.object({
+    body: z.object({
+      permissions: z.array(z.string()).min(1, 'At least one permission is required'),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid user ID format'),
+    }),
+  }),
+
+  userRoles: z.object({
+    body: z.object({
+      roles: z.array(z.string()).min(1, 'At least one role is required'),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid user ID format'),
+    }),
+  }),
+
+  customReport: z.object({
+    body: z.object({
+      name: z.string().min(1, 'Report name is required').max(100),
+      description: z.string().max(500).optional(),
+      type: z.enum(['user_activity', 'user_statistics', 'company_analytics', 'custom']),
+      filters: z.record(z.any()).optional(),
+      dateRange: z.object({
+        start: z.string().datetime(),
+        end: z.string().datetime(),
+      }),
+      format: z.enum(['json', 'csv', 'pdf']).default('json'),
+      schedule: z.object({
+        enabled: z.boolean().default(false),
+        frequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+        time: z.string().optional(),
+      }).optional(),
+    }),
+  }),
+
+  reportIdParams: z.object({
+    reportId: z.string().uuid('Invalid report ID format'),
+  }),
+
+  exportByRole: z.object({
+    params: z.object({
+      role: z.enum(['user', 'company_admin', 'company_super_admin', 'platform_admin']),
+    }),
+    query: z.object({
+      format: z.enum(['csv', 'json']).default('csv'),
+      includeInactive: z.boolean().default(false),
+    }),
+  }),
 };

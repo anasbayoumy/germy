@@ -60,7 +60,7 @@ export class SecurityLoggingService {
       // Log to database
       await db.insert(auditLogs).values({
         userId: event.userId,
-        companyId: event.companyId,
+        companyId: event.companyId || null,
         action: event.type,
         resourceType: 'security_event',
         resourceId: event.userId,
@@ -413,7 +413,7 @@ export class SecurityLoggingService {
   /**
    * Log successful login
    */
-  async logLoginSuccess(userId: string, email: string, companyId: string, ipAddress?: string, userAgent?: string): Promise<void> {
+  async logLoginSuccess(userId: string, email: string, companyId?: string, ipAddress?: string, userAgent?: string): Promise<void> {
     await this.logSecurityEvent({
       type: 'LOGIN_SUCCESS',
       userId,

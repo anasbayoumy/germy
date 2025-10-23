@@ -64,10 +64,33 @@ CREATE TABLE company_subscriptions (
     billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly', -- monthly, yearly
     current_period_start TIMESTAMP WITH TIME ZONE NOT NULL,
     current_period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+    
+    -- Stripe Payment Integration Fields
     stripe_customer_id VARCHAR(255),
     stripe_subscription_id VARCHAR(255),
+    stripe_price_id VARCHAR(255),
+    payment_status VARCHAR(50) NOT NULL DEFAULT 'trial', -- trial, active, past_due, canceled, incomplete
+    cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+    
+    -- Trial and Billing Fields
     trial_ends_at TIMESTAMP WITH TIME ZONE,
     cancelled_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Grace Period for Failed Payments
+    grace_period_ends TIMESTAMP WITH TIME ZONE,
+    
+    -- Payment Method Information
+    payment_method_type VARCHAR(50), -- card, bank_account, etc.
+    payment_method_last4 VARCHAR(4),
+    payment_method_brand VARCHAR(50), -- visa, mastercard, etc.
+    
+    -- Billing Information
+    billing_email VARCHAR(255),
+    billing_address JSONB,
+    
+    -- Metadata for Payment Service Integration
+    payment_metadata JSONB DEFAULT '{}',
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -237,13 +260,14 @@ CREATE TABLE user_activities (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
--- Teams/Departments
+-- Teams
 CREATE TABLE teams (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     manager_id UUID REFERENCES users(id),
+    color VARCHAR(7) DEFAULT '#3B82F6',
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -257,11 +281,120 @@ CREATE TABLE user_teams (
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     role_in_team VARCHAR(50) NOT NULL DEFAULT 'member', -- member, lead, manager
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    left_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     UNIQUE(user_id, team_id)
 );
 
+-- Departments
+CREATE TABLE departments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    parent_id UUID REFERENCES departments(id),
+    manager_id UUID REFERENCES users(id),
+    color VARCHAR(7) DEFAULT '#10B981',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(company_id, name)
+);
+
+-- User-Department relationships
+CREATE TABLE user_departments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL DEFAULT 'member', -- member, lead, manager, head
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    left_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    UNIQUE(user_id, department_id)
+);
+
 -- =====================================================
--- 4. USER APPROVAL & WORKFLOW TABLES
+-- 4. FILE MANAGEMENT TABLES
+-- =====================================================
+
+-- File uploads table
+CREATE TABLE files (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    original_name VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    category VARCHAR(100) DEFAULT 'uncategorized',
+    description TEXT,
+    tags JSONB DEFAULT '[]',
+    is_public BOOLEAN NOT NULL DEFAULT false,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    metadata JSONB DEFAULT '{}'
+);
+
+-- File sharing table
+CREATE TABLE file_shares (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    shared_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    shared_with_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    shared_with_team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    shared_with_department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
+    access_level VARCHAR(50) NOT NULL DEFAULT 'view', -- view, edit, download
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(file_id, shared_with_user_id, shared_with_team_id, shared_with_department_id)
+);
+
+-- File access logs
+CREATE TABLE file_access_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(50) NOT NULL, -- view, download, edit, delete, share
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}'
+);
+
+-- File versions (optional, for advanced versioning)
+CREATE TABLE file_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    uploaded_by UUID REFERENCES users(id),
+    metadata JSONB DEFAULT '{}',
+    UNIQUE(file_id, version_number)
+);
+
+-- File analytics (optional)
+CREATE TABLE file_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    total_views INTEGER NOT NULL DEFAULT 0,
+    total_downloads INTEGER NOT NULL DEFAULT 0,
+    last_viewed_at TIMESTAMP WITH TIME ZONE,
+    last_downloaded_at TIMESTAMP WITH TIME ZONE,
+    average_view_duration INTEGER, -- in seconds
+    unique_viewers INTEGER NOT NULL DEFAULT 0,
+    unique_downloaders INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(file_id)
+);
+
+-- =====================================================
+-- 5. USER APPROVAL & WORKFLOW TABLES
 -- =====================================================
 
 -- User Approval Requests
@@ -519,7 +652,71 @@ CREATE TABLE blacklisted_tokens (
 );
 
 -- =====================================================
--- 7. AUDIT & LOGGING TABLES
+-- 7. USER SERVICE ENHANCEMENT TABLES
+-- =====================================================
+
+-- Saved searches table
+CREATE TABLE saved_searches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    query TEXT NOT NULL,
+    filters JSONB DEFAULT '{}',
+    is_public BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User permissions table
+CREATE TABLE user_permissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    permission VARCHAR(100) NOT NULL,
+    resource VARCHAR(100),
+    resource_id UUID,
+    granted_by UUID REFERENCES users(id),
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN NOT NULL DEFAULT true
+);
+
+-- Custom reports table
+CREATE TABLE custom_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL,
+    filters JSONB DEFAULT '{}',
+    date_range JSONB NOT NULL,
+    format VARCHAR(10) NOT NULL DEFAULT 'json',
+    schedule JSONB DEFAULT '{}',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    last_generated TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Report history table
+CREATE TABLE report_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    report_id UUID NOT NULL REFERENCES custom_reports(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, completed, failed
+    file_path VARCHAR(500),
+    file_size INTEGER,
+    download_count INTEGER NOT NULL DEFAULT 0,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =====================================================
+-- 8. AUDIT & LOGGING TABLES
 -- =====================================================
 
 -- Audit Logs
@@ -655,6 +852,52 @@ CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_company_id ON audit_logs(company_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 
+-- Department indexes
+CREATE INDEX idx_departments_company_id ON departments(company_id);
+CREATE INDEX idx_departments_parent_id ON departments(parent_id);
+CREATE INDEX idx_departments_manager_id ON departments(manager_id);
+
+-- User department indexes
+CREATE INDEX idx_user_departments_user_id ON user_departments(user_id);
+CREATE INDEX idx_user_departments_department_id ON user_departments(department_id);
+CREATE INDEX idx_user_departments_is_active ON user_departments(is_active);
+
+-- File management indexes
+CREATE INDEX idx_files_user_id ON files(user_id);
+CREATE INDEX idx_files_company_id ON files(company_id);
+CREATE INDEX idx_files_category ON files(category);
+CREATE INDEX idx_files_is_public ON files(is_public);
+CREATE INDEX idx_files_uploaded_at ON files(uploaded_at);
+
+CREATE INDEX idx_file_shares_file_id ON file_shares(file_id);
+CREATE INDEX idx_file_shares_shared_with_user_id ON file_shares(shared_with_user_id);
+CREATE INDEX idx_file_shares_shared_with_team_id ON file_shares(shared_with_team_id);
+CREATE INDEX idx_file_shares_shared_with_department_id ON file_shares(shared_with_department_id);
+
+CREATE INDEX idx_file_access_logs_file_id ON file_access_logs(file_id);
+CREATE INDEX idx_file_access_logs_user_id ON file_access_logs(user_id);
+CREATE INDEX idx_file_access_logs_accessed_at ON file_access_logs(accessed_at);
+
+-- User service enhancement indexes
+CREATE INDEX idx_saved_searches_user_id ON saved_searches(user_id);
+CREATE INDEX idx_saved_searches_company_id ON saved_searches(company_id);
+CREATE INDEX idx_saved_searches_is_public ON saved_searches(is_public);
+
+CREATE INDEX idx_user_permissions_user_id ON user_permissions(user_id);
+CREATE INDEX idx_user_permissions_company_id ON user_permissions(company_id);
+CREATE INDEX idx_user_permissions_permission ON user_permissions(permission);
+CREATE INDEX idx_user_permissions_is_active ON user_permissions(is_active);
+
+CREATE INDEX idx_custom_reports_user_id ON custom_reports(user_id);
+CREATE INDEX idx_custom_reports_company_id ON custom_reports(company_id);
+CREATE INDEX idx_custom_reports_type ON custom_reports(type);
+CREATE INDEX idx_custom_reports_is_active ON custom_reports(is_active);
+
+CREATE INDEX idx_report_history_report_id ON report_history(report_id);
+CREATE INDEX idx_report_history_user_id ON report_history(user_id);
+CREATE INDEX idx_report_history_company_id ON report_history(company_id);
+CREATE INDEX idx_report_history_status ON report_history(status);
+
 -- =====================================================
 -- 11. TRIGGERS FOR UPDATED_AT
 -- =====================================================
@@ -681,6 +924,11 @@ CREATE TRIGGER update_work_mode_templates_updated_at BEFORE UPDATE ON work_mode_
 CREATE TRIGGER update_geofence_settings_updated_at BEFORE UPDATE ON geofence_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_attendance_records_updated_at BEFORE UPDATE ON attendance_records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_departments_updated_at BEFORE UPDATE ON departments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_files_updated_at BEFORE UPDATE ON files FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_saved_searches_updated_at BEFORE UPDATE ON saved_searches FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_custom_reports_updated_at BEFORE UPDATE ON custom_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_file_analytics_updated_at BEFORE UPDATE ON file_analytics FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
 -- 12. ROW LEVEL SECURITY (RLS) POLICIES
@@ -700,10 +948,10 @@ ALTER TABLE attendance_flags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
 
--- Example RLS policy for users table
-CREATE POLICY users_company_isolation ON users
-    FOR ALL TO authenticated
-    USING (company_id = current_setting('app.current_company_id')::uuid);
+-- Example RLS policy for users table (commented out - requires authenticated role)
+-- CREATE POLICY users_company_isolation ON users
+--     FOR ALL TO authenticated
+--     USING (company_id = current_setting('app.current_company_id')::uuid);
 
 -- =====================================================
 -- 13. INITIAL DATA SEEDING

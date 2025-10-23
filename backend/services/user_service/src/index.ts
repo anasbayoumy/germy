@@ -12,7 +12,9 @@ import { handleUploadError } from './middleware/upload.middleware';
 import userRoutes from './routes/user.routes';
 import teamRoutes from './routes/team.routes';
 import departmentRoutes from './routes/department.routes';
-import fileUploadRoutes from './routes/fileUpload.routes';
+import fileRoutes from './routes/file.routes';
+import auditRoutes from './routes/audit.routes';
+import securityRoutes from './routes/security.routes';
 
 // Load environment variables
 config();
@@ -56,7 +58,9 @@ app.get('/health', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/departments', departmentRoutes);
-app.use('/api/files', fileUploadRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/security', securityRoutes);
 
 // Error handling middleware
 app.use(handleUploadError);

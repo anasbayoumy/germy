@@ -33,6 +33,10 @@ export interface AuthResult {
     token?: string;
     approvalRequest?: any;
   };
+  // Payment-related fields for enhanced error handling
+  requiresPayment?: boolean;
+  paymentUrl?: string;
+  paymentStatus?: string;
 }
 
 export class AuthService {
@@ -140,7 +144,7 @@ export class AuthService {
       });
 
       // Log successful login
-      await securityLoggingService.logLoginSuccess(admin.id, admin.email, admin.companyId || 'platform', ipAddress, userAgent);
+      await securityLoggingService.logLoginSuccess(admin.id, admin.email, admin.companyId || undefined, ipAddress, userAgent);
       
       logger.info(`Platform admin logged in: ${admin.email}`);
 
@@ -239,13 +243,43 @@ export class AuthService {
         };
       }
 
+      // Check if company has active trial or subscription
+      const trialStatus = await trialService.validateTrial(userData.companyId!);
+      if (!trialStatus.isValid) {
+        if (trialStatus.trialStatus === 'expired') {
+          return {
+            success: false,
+            message: 'Your company trial has expired. Please contact your company super admin to upgrade the subscription.',
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        if (trialStatus.trialStatus === 'grace_period') {
+          return {
+            success: false,
+            message: trialStatus.message,
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        return {
+          success: false,
+          message: trialStatus.message,
+          requiresPayment: trialStatus.requiresPayment,
+          paymentUrl: trialStatus.paymentUrl,
+          paymentStatus: trialStatus.paymentStatus
+        };
+      }
+
       // Check role-based access permissions
       let hasRequiredAccess = false;
       switch (targetRole) {
         case 'user':
           hasRequiredAccess = userData.mobileAppAccess;
           break;
-        case 'admin':
+        case 'company_admin':
           hasRequiredAccess = userData.mobileAppAccess && userData.dashboardAccess;
           break;
         case 'company_super_admin':
@@ -397,6 +431,38 @@ export class AuthService {
           success: false,
           message: 'Company account is deactivated',
         };
+      }
+
+      // Check if company has active trial or subscription (skip for platform admin)
+      if (userData.role !== 'platform_admin') {
+        const trialStatus = await trialService.validateTrial(userData.companyId!);
+        if (!trialStatus.isValid) {
+          if (trialStatus.trialStatus === 'expired') {
+            return {
+              success: false,
+              message: 'Your company trial has expired. Please contact your company super admin to upgrade the subscription.',
+              requiresPayment: trialStatus.requiresPayment,
+              paymentUrl: trialStatus.paymentUrl,
+              paymentStatus: trialStatus.paymentStatus
+            };
+          }
+          if (trialStatus.trialStatus === 'grace_period') {
+            return {
+              success: false,
+              message: trialStatus.message,
+              requiresPayment: trialStatus.requiresPayment,
+              paymentUrl: trialStatus.paymentUrl,
+              paymentStatus: trialStatus.paymentStatus
+            };
+          }
+          return {
+            success: false,
+            message: trialStatus.message,
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
       }
 
       // Verify password
@@ -565,6 +631,21 @@ export class AuthService {
         };
       }
 
+      // Check if domain is eligible for trial (not used before)
+      const trialEligibility = await trialService.checkTrialEligibility(data.companyDomain);
+      if (!trialEligibility.success) {
+        if (trialEligibility.trialStatus === 'used') {
+          return {
+            success: false,
+            message: 'This company domain has already used the free trial. Please contact support for assistance.',
+          };
+        }
+        return {
+          success: false,
+          message: trialEligibility.message,
+        };
+      }
+
       // Start transaction
       const result = await db.transaction(async (tx) => {
         // Create company
@@ -701,6 +782,45 @@ export class AuthService {
         };
       }
 
+      // Check if company has active trial or subscription
+      const trialStatus = await trialService.validateTrial(companyId);
+      if (!trialStatus.isValid) {
+        if (trialStatus.trialStatus === 'expired') {
+          return {
+            success: false,
+            message: 'Company trial has expired. Please contact your company super admin to upgrade the subscription.',
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        if (trialStatus.trialStatus === 'grace_period') {
+          return {
+            success: false,
+            message: trialStatus.message,
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        return {
+          success: false,
+          message: trialStatus.message,
+          requiresPayment: trialStatus.requiresPayment,
+          paymentUrl: trialStatus.paymentUrl,
+          paymentStatus: trialStatus.paymentStatus
+        };
+      }
+
+      // Check employee limit
+      const limitCheck = await subscriptionService.checkEmployeeLimit(companyId);
+      if (!limitCheck.canAddEmployee) {
+        return {
+          success: false,
+          message: limitCheck.message,
+        };
+      }
+
       // Create company admin user
       const hashedPassword = await hashPassword(data.password);
       const [user] = await db
@@ -791,6 +911,45 @@ export class AuthService {
         return {
           success: false,
           message: 'Company is deactivated',
+        };
+      }
+
+      // Check if company has active trial or subscription
+      const trialStatus = await trialService.validateTrial(companyId);
+      if (!trialStatus.isValid) {
+        if (trialStatus.trialStatus === 'expired') {
+          return {
+            success: false,
+            message: 'Company trial has expired. Please contact your company super admin to upgrade the subscription.',
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        if (trialStatus.trialStatus === 'grace_period') {
+          return {
+            success: false,
+            message: trialStatus.message,
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        return {
+          success: false,
+          message: trialStatus.message,
+          requiresPayment: trialStatus.requiresPayment,
+          paymentUrl: trialStatus.paymentUrl,
+          paymentStatus: trialStatus.paymentStatus
+        };
+      }
+
+      // Check employee limit
+      const limitCheck = await subscriptionService.checkEmployeeLimit(companyId);
+      if (!limitCheck.canAddEmployee) {
+        return {
+          success: false,
+          message: limitCheck.message,
         };
       }
 
@@ -1169,9 +1328,35 @@ export class AuthService {
       // Check trial eligibility and subscription limits
       const companyId = company[0].id;
       
-      // TEMPORARY: Bypass subscription validation for now
-      // TODO: Fix trial service database queries
-      logger.info(`Bypassing subscription validation for company: ${companyId}`);
+      // Check if company has active trial or subscription
+      const trialStatus = await trialService.validateTrial(companyId);
+      if (!trialStatus.isValid) {
+        if (trialStatus.trialStatus === 'expired') {
+          return {
+            success: false,
+            message: 'Company trial has expired. Please contact your company super admin to upgrade the subscription.',
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        if (trialStatus.trialStatus === 'grace_period') {
+          return {
+            success: false,
+            message: trialStatus.message,
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        return {
+          success: false,
+          message: trialStatus.message,
+          requiresPayment: trialStatus.requiresPayment,
+          paymentUrl: trialStatus.paymentUrl,
+          paymentStatus: trialStatus.paymentStatus
+        };
+      }
 
       // Check employee limit
       const limitCheck = await subscriptionService.checkEmployeeLimit(companyId);
@@ -1314,9 +1499,35 @@ export class AuthService {
       // Check trial eligibility and subscription limits
       const companyId = company[0].id;
       
-      // TEMPORARY: Bypass subscription validation for now
-      // TODO: Fix trial service database queries
-      logger.info(`Bypassing subscription validation for company: ${companyId}`);
+      // Check if company has active trial or subscription
+      const trialStatus = await trialService.validateTrial(companyId);
+      if (!trialStatus.isValid) {
+        if (trialStatus.trialStatus === 'expired') {
+          return {
+            success: false,
+            message: 'Company trial has expired. Please contact your company super admin to upgrade the subscription.',
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        if (trialStatus.trialStatus === 'grace_period') {
+          return {
+            success: false,
+            message: trialStatus.message,
+            requiresPayment: trialStatus.requiresPayment,
+            paymentUrl: trialStatus.paymentUrl,
+            paymentStatus: trialStatus.paymentStatus
+          };
+        }
+        return {
+          success: false,
+          message: trialStatus.message,
+          requiresPayment: trialStatus.requiresPayment,
+          paymentUrl: trialStatus.paymentUrl,
+          paymentStatus: trialStatus.paymentStatus
+        };
+      }
 
       // Check employee limit
       const limitCheck = await subscriptionService.checkEmployeeLimit(companyId);
@@ -1647,13 +1858,21 @@ export class AuthService {
       logger.info(`Getting company status for: ${companyId}`);
 
       // Get company information
-      const company = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, companyId))
-        .limit(1);
+      let company;
+      try {
+        company = await db
+          .select()
+          .from(companies)
+          .where(eq(companies.id, companyId))
+          .limit(1);
+        logger.info(`Company query result:`, company);
+      } catch (error) {
+        logger.error('Company query error:', error);
+        throw error;
+      }
 
       if (company.length === 0) {
+        logger.warn(`Company not found: ${companyId}`);
         return {
           success: false,
           message: 'Company not found'
@@ -1661,22 +1880,33 @@ export class AuthService {
       }
 
       // Get trial history
-      const trialHistory = await db
-        .select()
-        .from(companyTrialHistory)
-        .where(eq(companyTrialHistory.companyId, companyId))
-        .orderBy(desc(companyTrialHistory.trialStartedAt))
-        .limit(1);
+      let trialHistory;
+      try {
+        trialHistory = await db
+          .select()
+          .from(companyTrialHistory)
+          .where(eq(companyTrialHistory.companyId, companyId))
+          .orderBy(desc(companyTrialHistory.trialStartedAt))
+          .limit(1);
+        logger.info(`Trial history query result:`, trialHistory);
+      } catch (error) {
+        logger.error('Trial history query error:', error);
+        throw error;
+      }
 
       // Get current subscription
-      const subscription = await db
-        .select()
-        .from(companySubscriptions)
-        .where(and(
-          eq(companySubscriptions.companyId, companyId),
-          eq(companySubscriptions.status, 'trial')
-        ))
-        .limit(1);
+      let subscription;
+      try {
+        subscription = await db
+          .select()
+          .from(companySubscriptions)
+          .where(eq(companySubscriptions.companyId, companyId))
+          .limit(1);
+        logger.info(`Subscription query result:`, subscription);
+      } catch (error) {
+        logger.error('Subscription query error:', error);
+        throw error;
+      }
 
       const companyData = company[0];
       const trialData = trialHistory[0];
@@ -1713,6 +1943,11 @@ export class AuthService {
       };
     } catch (error) {
       logger.error('Get company status service error:', error);
+      logger.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        companyId
+      });
       return {
         success: false,
         message: 'Error retrieving company status'

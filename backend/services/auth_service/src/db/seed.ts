@@ -1,5 +1,5 @@
 import { db } from '../config/database';
-import { platformAdmins } from '../db/schema';
+import { users } from '../db/schema';
 import { hashPassword } from '../utils/bcrypt';
 import { logger } from '../utils/logger';
 import { eq } from 'drizzle-orm';
@@ -15,8 +15,8 @@ export async function seedPlatformAdmin() {
     // Check if platform admin already exists
     const [existingAdmin] = await db
       .select()
-      .from(platformAdmins)
-      .where(eq(platformAdmins.email, 'admin@platform.com'))
+      .from(users)
+      .where(eq(users.email, 'admin@platform.com'))
       .limit(1);
 
     if (existingAdmin) {
@@ -36,7 +36,7 @@ export async function seedPlatformAdmin() {
     // Create initial platform admin
     const hashedPassword = await hashPassword('AdminPass123!');
     const [platformAdmin] = await db
-      .insert(platformAdmins)
+      .insert(users)
       .values({
         email: 'admin@platform.com',
         passwordHash: hashedPassword,
@@ -44,6 +44,8 @@ export async function seedPlatformAdmin() {
         lastName: 'Admin',
         role: 'platform_admin',
         isActive: true,
+        isVerified: true,
+        platformPanelAccess: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -106,19 +108,21 @@ export async function seedTestData() {
     for (const admin of testAdmins) {
       const [existing] = await db
         .select()
-        .from(platformAdmins)
-        .where(eq(platformAdmins.email, admin.email))
+        .from(users)
+        .where(eq(users.email, admin.email))
         .limit(1);
 
       if (!existing) {
         const hashedPassword = await hashPassword(admin.password);
-        await db.insert(platformAdmins).values({
+        await db.insert(users).values({
           email: admin.email,
           passwordHash: hashedPassword,
           firstName: admin.firstName,
           lastName: admin.lastName,
           role: 'platform_admin',
           isActive: true,
+          isVerified: true,
+          platformPanelAccess: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         });

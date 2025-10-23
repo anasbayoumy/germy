@@ -1,6 +1,5 @@
 import { db } from '../config/database';
 import { 
-  companies, 
   companyEmployeeCounts,
   users 
 } from '../db/schema';
@@ -8,7 +7,7 @@ import {
   companySubscriptions, 
   subscriptionPlans 
 } from '../db/schema/platform';
-import { eq, and, count } from 'drizzle-orm';
+import { eq, and, or, count } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 export interface SubscriptionResult {
@@ -61,7 +60,7 @@ export class SubscriptionService {
   }
 
   /**
-   * Get company's current subscription
+   * Get company's current subscription (Payment-Aware)
    */
   async getCompanySubscription(companyId: string): Promise<SubscriptionResult> {
     try {
@@ -74,7 +73,10 @@ export class SubscriptionService {
         .innerJoin(subscriptionPlans, eq(companySubscriptions.planId, subscriptionPlans.id))
         .where(and(
           eq(companySubscriptions.companyId, companyId),
-          eq(companySubscriptions.status, 'active')
+          or(
+            eq(companySubscriptions.status, 'active'),
+            eq(companySubscriptions.status, 'trial')
+          )
         ))
         .limit(1);
 
@@ -105,13 +107,58 @@ export class SubscriptionService {
    */
   async checkEmployeeLimit(companyId: string): Promise<EmployeeLimitResult> {
     try {
-      // TEMPORARY: Bypass employee limit check
-      // TODO: Fix subscription service database queries
+      // Get current subscription
+      const subscriptionResult = await this.getCompanySubscription(companyId);
+      if (!subscriptionResult.success || !subscriptionResult.plan) {
+        return {
+          canAddEmployee: false,
+          message: 'No active subscription found',
+          currentCount: 0,
+          maxAllowed: 0,
+          upgradeRequired: true
+        };
+      }
+
+      const plan = subscriptionResult.plan;
+      const maxEmployees = plan.maxEmployees;
+
+      // Get current employee count
+      const employeeCount = await this.getCurrentEmployeeCount(companyId);
+      
+      if (employeeCount >= maxEmployees) {
+        // Check if there's a higher plan available
+        const suggestedPlan = await this.getNextPlan(plan.id);
+        
+        return {
+          canAddEmployee: false,
+          message: `Employee limit reached (${employeeCount}/${maxEmployees}). Please upgrade to add more employees.`,
+          currentCount: employeeCount,
+          maxAllowed: maxEmployees,
+          upgradeRequired: true,
+          suggestedPlan
+        };
+      }
+
+      // Check if approaching limit (80% threshold)
+      const threshold = Math.floor(maxEmployees * 0.8);
+      if (employeeCount >= threshold) {
+        const suggestedPlan = await this.getNextPlan(plan.id);
+        
+        return {
+          canAddEmployee: true,
+          message: `Approaching employee limit (${employeeCount}/${maxEmployees}). Consider upgrading soon.`,
+          currentCount: employeeCount,
+          maxAllowed: maxEmployees,
+          upgradeRequired: false,
+          suggestedPlan
+        };
+      }
+
       return {
         canAddEmployee: true,
-        message: 'Employee limit check bypassed',
-        currentCount: 0,
-        maxAllowed: 999999,
+        message: `Employee count is within limits (${employeeCount}/${maxEmployees})`,
+        currentCount: employeeCount,
+        maxAllowed: maxEmployees,
         upgradeRequired: false
       };
 
@@ -331,6 +378,153 @@ export class SubscriptionService {
       return {
         success: false,
         message: 'Error validating plan upgrade'
+      };
+    }
+  }
+
+  /**
+   * Get payment status for a company (Payment-Aware)
+   */
+  async getPaymentStatus(companyId: string): Promise<{
+    success: boolean;
+    message: string;
+    paymentStatus?: string;
+    requiresPayment?: boolean;
+    paymentUrl?: string;
+    daysUntilRenewal?: number;
+    isActive?: boolean;
+  }> {
+    try {
+      const subscription = await db
+        .select()
+        .from(companySubscriptions)
+        .where(and(
+          eq(companySubscriptions.companyId, companyId),
+          or(
+            eq(companySubscriptions.status, 'active'),
+            eq(companySubscriptions.status, 'trial')
+          )
+        ))
+        .limit(1);
+
+      if (subscription.length === 0) {
+        return {
+          success: false,
+          message: 'No active subscription found',
+          requiresPayment: true,
+          paymentUrl: '/payment/upgrade'
+        };
+      }
+
+      const sub = subscription[0];
+      const now = new Date();
+
+      // Check payment status
+      if (sub.paymentStatus === 'active') {
+        const daysUntilRenewal = Math.ceil(
+          (sub.currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        return {
+          success: true,
+          message: 'Subscription is active and paid',
+          paymentStatus: 'active',
+          isActive: true,
+          daysUntilRenewal
+        };
+      }
+
+      if (sub.paymentStatus === 'past_due') {
+        // Check if still in grace period
+        if (sub.gracePeriodEnds && now < sub.gracePeriodEnds) {
+          const daysRemaining = Math.ceil(
+            (sub.gracePeriodEnds.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          
+          return {
+            success: true,
+            message: `Payment is past due. ${daysRemaining} days remaining in grace period.`,
+            paymentStatus: 'past_due',
+            requiresPayment: true,
+            paymentUrl: '/payment/update-method',
+            isActive: true
+          };
+        } else {
+          return {
+            success: false,
+            message: 'Payment is past due and grace period has expired.',
+            paymentStatus: 'past_due',
+            requiresPayment: true,
+            paymentUrl: '/payment/update-method',
+            isActive: false
+          };
+        }
+      }
+
+      if (sub.paymentStatus === 'canceled') {
+        return {
+          success: false,
+          message: 'Subscription has been canceled.',
+          paymentStatus: 'canceled',
+          requiresPayment: true,
+          paymentUrl: '/payment/reactivate',
+          isActive: false
+        };
+      }
+
+      if (sub.paymentStatus === 'incomplete') {
+        return {
+          success: false,
+          message: 'Payment setup is incomplete.',
+          paymentStatus: 'incomplete',
+          requiresPayment: true,
+          paymentUrl: '/payment/complete-setup',
+          isActive: false
+        };
+      }
+
+      // Handle trial status
+      if (sub.paymentStatus === 'trial') {
+        if (sub.trialEndsAt && now < sub.trialEndsAt) {
+          const daysRemaining = Math.ceil(
+            (sub.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          
+          return {
+            success: true,
+            message: `Trial is active. ${daysRemaining} days remaining.`,
+            paymentStatus: 'trial',
+            isActive: true,
+            daysUntilRenewal: daysRemaining
+          };
+        } else {
+          return {
+            success: false,
+            message: 'Trial has expired.',
+            paymentStatus: 'trial',
+            requiresPayment: true,
+            paymentUrl: '/payment/upgrade',
+            isActive: false
+          };
+        }
+      }
+
+      return {
+        success: false,
+        message: 'Unknown payment status',
+        paymentStatus: sub.paymentStatus,
+        requiresPayment: true,
+        paymentUrl: '/payment/upgrade',
+        isActive: false
+      };
+
+    } catch (error) {
+      logger.error('Error getting payment status:', error);
+      return {
+        success: false,
+        message: 'Error retrieving payment status',
+        requiresPayment: true,
+        paymentUrl: '/payment/upgrade'
       };
     }
   }

@@ -52,4 +52,73 @@ export const departmentSchemas = {
       id: z.string().uuid('Invalid department ID format'),
     }),
   }),
+
+  // Enhanced department schemas
+  getDepartmentUsersQuery: z.object({
+    page: z.string().transform(Number).default('1'),
+    limit: z.string().transform(Number).default('20'),
+    role: z.enum(['member', 'lead', 'manager', 'head']).optional(),
+    isActive: z.string().transform(val => val === 'true').optional(),
+  }),
+
+  updateDepartmentUser: z.object({
+    body: z.object({
+      role: z.enum(['member', 'lead', 'manager', 'head']).optional(),
+      isActive: z.boolean().optional(),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid department ID format'),
+      userId: z.string().uuid('Invalid user ID format'),
+    }),
+  }),
+
+  bulkAddDepartmentUsers: z.object({
+    body: z.object({
+      userIds: z.array(z.string().uuid('Invalid user ID format')).min(1, 'At least one user ID is required').max(50, 'Maximum 50 users allowed'),
+      role: z.enum(['member', 'lead', 'manager', 'head']).default('member'),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid department ID format'),
+    }),
+  }),
+
+  bulkRemoveDepartmentUsers: z.object({
+    body: z.object({
+      userIds: z.array(z.string().uuid('Invalid user ID format')).min(1, 'At least one user ID is required').max(50, 'Maximum 50 users allowed'),
+    }),
+    params: z.object({
+      id: z.string().uuid('Invalid department ID format'),
+    }),
+  }),
+
+  getDepartmentHierarchy: z.object({
+    params: z.object({
+      id: z.string().uuid('Invalid department ID format'),
+    }),
+    query: z.object({
+      includeInactive: z.string().transform(val => val === 'true').default('false'),
+      maxDepth: z.string().transform(Number).default('5'),
+    }),
+  }),
+
+  getDepartmentAnalytics: z.object({
+    params: z.object({
+      id: z.string().uuid('Invalid department ID format'),
+    }),
+    query: z.object({
+      period: z.enum(['7d', '30d', '90d', '1y']).default('30d'),
+      includeSubDepartments: z.string().transform(val => val === 'true').default('true'),
+    }),
+  }),
+
+  exportDepartmentUsers: z.object({
+    params: z.object({
+      id: z.string().uuid('Invalid department ID format'),
+    }),
+    query: z.object({
+      format: z.enum(['csv', 'json']).default('csv'),
+      includeInactive: z.string().transform(val => val === 'true').default('false'),
+      includeSubDepartments: z.string().transform(val => val === 'true').default('false'),
+    }),
+  }),
 };

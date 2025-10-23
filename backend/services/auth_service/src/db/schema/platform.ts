@@ -49,10 +49,33 @@ export const companySubscriptions = pgTable('company_subscriptions', {
   billingCycle: varchar('billing_cycle', { length: 20 }).notNull().default('monthly'), // monthly, yearly
   currentPeriodStart: timestamp('current_period_start', { withTimezone: true }).notNull(),
   currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
+  
+  // Stripe Payment Integration Fields
   stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
   stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
+  stripePriceId: varchar('stripe_price_id', { length: 255 }),
+  paymentStatus: varchar('payment_status', { length: 50 }).notNull().default('trial'), // trial, active, past_due, canceled, incomplete
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+  
+  // Trial and Billing Fields
   trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  
+  // Grace Period for Failed Payments
+  gracePeriodEnds: timestamp('grace_period_ends', { withTimezone: true }),
+  
+  // Payment Method Information
+  paymentMethodType: varchar('payment_method_type', { length: 50 }), // card, bank_account, etc.
+  paymentMethodLast4: varchar('payment_method_last4', { length: 4 }),
+  paymentMethodBrand: varchar('payment_method_brand', { length: 50 }), // visa, mastercard, etc.
+  
+  // Billing Information
+  billingEmail: varchar('billing_email', { length: 255 }),
+  billingAddress: jsonb('billing_address'),
+  
+  // Metadata for Payment Service Integration
+  paymentMetadata: jsonb('payment_metadata').default('{}'),
+  
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

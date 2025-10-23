@@ -1,4 +1,4 @@
-import { eq, and, lt, gte } from 'drizzle-orm';
+import { eq, and, lt, gte, isNotNull } from 'drizzle-orm';
 import { db } from '../config/database';
 import { users, faceEncodingHistory } from '../db/schema';
 import { logger } from '../utils/logger';
@@ -20,6 +20,7 @@ export class FaceEncodingService {
     requesterId: string,
     requesterRole: string,
     requesterCompanyId: string,
+    processingTime?: number,
     ipAddress?: string,
     userAgent?: string
   ): Promise<FaceEncodingResult> {
@@ -100,10 +101,11 @@ export class FaceEncodingService {
           .insert(faceEncodingHistory)
           .values({
             userId: userId,
-            companyId: userData.companyId,
             encodingData: encodingData,
-            qualityScore: qualityScore,
-            encodingVersion: 'v1',
+            qualityScore: qualityScore.toString(),
+            processingTime: processingTime || 0,
+            algorithm: 'arcface',
+            version: '1.0',
             isActive: true,
             expiresAt: expiresAt,
           })
@@ -116,7 +118,7 @@ export class FaceEncodingService {
             faceEncodingData: encodingData,
             faceEncodingCreatedAt: new Date(),
             faceEncodingExpiresAt: expiresAt,
-            faceEncodingQualityScore: qualityScore,
+            faceEncodingQualityScore: qualityScore.toString(),
           })
           .where(eq(users.id, userId));
 
@@ -207,6 +209,7 @@ export class FaceEncodingService {
 
       return {
         success: true,
+        message: 'Face encoding retrieved successfully',
         data: { faceEncoding: faceEncoding[0] },
       };
     } catch (error) {
@@ -226,6 +229,7 @@ export class FaceEncodingService {
     requesterId: string,
     requesterRole: string,
     requesterCompanyId: string,
+    processingTime?: number,
     ipAddress?: string,
     userAgent?: string
   ): Promise<FaceEncodingResult> {
@@ -298,10 +302,11 @@ export class FaceEncodingService {
           .insert(faceEncodingHistory)
           .values({
             userId: userId,
-            companyId: userData.companyId,
             encodingData: encodingData,
-            qualityScore: qualityScore,
-            encodingVersion: 'v1',
+            qualityScore: qualityScore.toString(),
+            processingTime: processingTime || 0,
+            algorithm: 'arcface',
+            version: '1.0',
             isActive: true,
             expiresAt: expiresAt,
           })
@@ -314,7 +319,7 @@ export class FaceEncodingService {
             faceEncodingData: encodingData,
             faceEncodingCreatedAt: new Date(),
             faceEncodingExpiresAt: expiresAt,
-            faceEncodingQualityScore: qualityScore,
+            faceEncodingQualityScore: qualityScore.toString(),
           })
           .where(eq(users.id, userId));
 
@@ -484,6 +489,7 @@ export class FaceEncodingService {
 
       return {
         success: true,
+        message: 'Face encoding status retrieved successfully',
         data: {
           status,
           daysUntilExpiration,
@@ -521,7 +527,7 @@ export class FaceEncodingService {
       expirationDate.setDate(expirationDate.getDate() + days);
 
       let whereCondition = and(
-        eq(users.faceEncodingExpiresAt, null), // Has face encoding
+        isNotNull(users.faceEncodingExpiresAt), // Has face encoding
         lt(users.faceEncodingExpiresAt, expirationDate) // Expires within specified days
       );
 
@@ -548,6 +554,7 @@ export class FaceEncodingService {
 
       return {
         success: true,
+        message: 'Expiring face encodings retrieved successfully',
         data: { expiringUsers },
       };
     } catch (error) {

@@ -5,7 +5,12 @@ import * as schema from '../db/schema';
 
 // Create the connection
 const connectionString = process.env.DATABASE_URL!;
-const client = postgres(connectionString, { max: 1 });
+const client = postgres(connectionString, { 
+  max: 20, 
+  idle_timeout: 20,
+  connect_timeout: 10,
+  prepare: false 
+});
 
 
 // Create the database instance
